@@ -474,7 +474,7 @@
 
     function connect() {
       setWs('reconnecting');
-      try { ws = new WebSocket('ws://localhost:__WS_PORT__'); } catch { sched(); return; }
+      try { ws = new WebSocket(`ws://${window.location.hostname}:__WS_PORT__`); } catch { sched(); return; }
       ws.onopen    = () => { setWs('connected'); delay = 1000; };
       ws.onmessage = (e) => { try { handle(JSON.parse(e.data)); } catch {} };
       ws.onclose   = ws.onerror = () => { setWs('disconnected'); sched(); };
