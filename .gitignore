@@ -1,0 +1,7 @@
+node_modules/
+sessions/
+dist/
+*.js.map
+.env
+config.json
+.DS_Store

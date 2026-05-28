@@ -1,0 +1,21 @@
+{
+  "targetUrl": "https://tiket.com/EVENT_URL_HERE",
+  "saleOpenTime": "2026-06-11T05:00:00Z",
+  "credentials": [
+    { "email": "your@email.com", "password": "yourpassword", "proxy": null }
+  ],
+  "workerCount": 30,
+  "refreshIntervalMs": 2000,
+  "stopOnQueueDetected": true,
+  "stopOnSoldOut": true,
+  "headless": false,
+  "locale": "id-ID",
+  "timezoneId": "Asia/Jakarta",
+  "userAgents": [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+  ]
+}
