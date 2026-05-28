@@ -121,14 +121,16 @@ export class WorkerPool {
       });
       return;
     }
-    entry.retries++;
+    const attempt = entry.retries + 1;
     bus.emit("system:log", {
       scope: "pool",
-      message: `trying to resurrect worker ${id} (attempt ${entry.retries})`,
+      message: `trying to resurrect worker ${id} (attempt ${attempt})`,
     });
     await new Promise((r) => setTimeout(r, 1_000));
     try {
       await this.spawnOne(id);
+      const newEntry = this.workers.get(id);
+      if (newEntry) newEntry.retries = attempt;
     } catch (err) {
       bus.emit("system:log", {
         scope: "pool",

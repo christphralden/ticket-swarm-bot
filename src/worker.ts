@@ -14,6 +14,10 @@ import {
   SESSION_DIR,
   WORKER_STATES,
   WORKER_COMMANDS,
+  CLICK_JITTER_MIN_MS,
+  CLICK_JITTER_MAX_MS,
+  RELOAD_JITTER_MIN_MS,
+  RELOAD_JITTER_MAX_MS,
 } from "../constants";
 import type { WorkerCredential, WorkerState, ControllerMessage } from "./types";
 
@@ -27,6 +31,8 @@ export class Worker {
   private _closed = false;
   private consecutiveErrors = 0;
   private unsubscribeCmd: (() => void) | null = null;
+  private currentFocus = "";
+  private lastNet: { status: number; url: string } | null = null;
 
   constructor(
     private id: number,
@@ -51,6 +57,8 @@ export class Worker {
     const { config } = getCtx();
     const sessionPath = path.resolve(SESSION_DIR, `worker-${this.id}`);
     fs.mkdirSync(sessionPath, { recursive: true });
+
+    this.setFocus("launching browser");
 
     this.browser = await chromium.launch({
       headless: config.headless,
@@ -89,24 +97,44 @@ export class Worker {
     await this.context.addInitScript(STEALTH_SCRIPT);
     this.page = await this.context.newPage();
 
+    this.page.on("response", (res) => {
+      const type = res.request().resourceType();
+      if (type !== "xhr" && type !== "fetch") return;
+      const status = res.status();
+      const url = res.url();
+      this.lastNet = { status, url };
+      if (status === 429) {
+        this.setFocus(`rate limited (429) — ${this.urlShort(url)}`);
+        this.consecutiveErrors++;
+      } else if (status === 401 || status === 403) {
+        this.setFocus(`auth failure (${status}) — session may be dead`);
+        this.log(`account health warning: ${status} from ${url}`);
+      } else if (status >= 500) {
+        this.log(`server error ${status}: ${url}`);
+      }
+    });
+
     const { bus } = getCtx();
     this.unsubscribeCmd = bus.on(`cmd:${this.id}`, (msg) =>
       this.handleCommand(msg),
     );
 
     this.setState(WORKER_STATES.IDLE);
+    this.setFocus("idle");
     this.log("launch");
   }
 
   async preNavigate(): Promise<void> {
     if (!this.page) return;
     this.setState(WORKER_STATES.NAVIGATING);
+    this.setFocus(`navigating to ${this.targetUrl}`);
     try {
       await this.page.goto(this.targetUrl, {
         waitUntil: "domcontentloaded",
         timeout: 15_000,
       });
       this.setState(WORKER_STATES.PRE_QUEUE);
+      this.setFocus("waiting for sale");
       this.log(`pre navigating to ${this.targetUrl}`);
     } catch (err) {
       this.log(`pre navigate failed, fuckkkkkkk: ${err}`);
@@ -139,33 +167,53 @@ export class Worker {
     ) {
       this.setState(WORKER_STATES.IDLE);
     }
+    this.setFocus("stopped");
     this.log("stopped");
   }
 
   async handleCommand(msg: ControllerMessage): Promise<void> {
     if (!this.page) return;
-
-    switch (msg.command) {
-      case WORKER_COMMANDS.START:
-        if (!this.running) this.start().catch(() => {});
-        break;
-      case WORKER_COMMANDS.STOP:
-        this.stop();
-        break;
-      case WORKER_COMMANDS.REFRESH:
-        await this.refresh();
-        break;
-      case WORKER_COMMANDS.CLICK_PRIMARY:
-        await this.clickPrimary();
-        break;
-      case WORKER_COMMANDS.NAVIGATE:
-        if (msg.url)
-          await this.page.goto(msg.url, { waitUntil: "domcontentloaded" });
-        break;
-      case WORKER_COMMANDS.FOCUS:
-        await this.page.bringToFront();
-        break;
-    }
+    try {
+      switch (msg.command) {
+        case WORKER_COMMANDS.START:
+          if (!this.running) this.start().catch(() => {});
+          break;
+        case WORKER_COMMANDS.STOP:
+          this.stop();
+          break;
+        case WORKER_COMMANDS.REFRESH:
+          await this.refresh();
+          break;
+        case WORKER_COMMANDS.CLICK_PRIMARY:
+          await this.clickPrimary();
+          break;
+        case WORKER_COMMANDS.NAVIGATE:
+          if (msg.url)
+            await this.page.goto(msg.url, { waitUntil: "domcontentloaded" });
+          break;
+        case WORKER_COMMANDS.FOCUS: {
+          const btn = await findPrimaryButton(this.page);
+          if (btn) {
+            const info = await btn.evaluate((el: Element) => ({
+              tag: el.tagName.toLowerCase(),
+              text: el.textContent?.trim().slice(0, 60) ?? "",
+            })).catch(() => null);
+            await btn.evaluate((el: Element) => {
+              (el as HTMLElement).style.outline = "3px solid #00ff88";
+              (el as HTMLElement).style.boxShadow = "0 0 14px rgba(0,255,136,0.6)";
+            }).catch(() => {});
+            if (info) {
+              this.setFocus(`<${info.tag}> "${info.text}"`);
+              this.log(`focus: <${info.tag}> "${info.text}"`);
+            }
+          } else {
+            this.setFocus("focus: no element found");
+            this.log("focus: no primary button found on page");
+          }
+          break;
+        }
+      }
+    } catch {}
   }
 
   async close(): Promise<void> {
@@ -225,6 +273,7 @@ export class Worker {
       if (!this.page) break;
 
       try {
+        this.setFocus("detecting state");
         const prevState = this.state;
         const newState = await detectState(this.page);
         if (newState !== prevState) this.setState(newState);
@@ -263,6 +312,7 @@ export class Worker {
           break;
         }
 
+        this.setFocus("sleeping");
         await this.sleep(config.refreshIntervalMs);
 
         if (
@@ -286,9 +336,15 @@ export class Worker {
 
         this.consecutiveErrors++;
         this.log(`FUCK #${this.consecutiveErrors}: ${err}`);
-        if (this.consecutiveErrors >= 5) {
-          this.setState(WORKER_STATES.ERROR);
+        if (this.consecutiveErrors >= 3) {
           this.consecutiveErrors = 0;
+          this.running = false;
+          this.setState(WORKER_STATES.ERROR);
+          this.setFocus("crashed — triggering recovery");
+          this._closed = true;
+          this.browser?.close().catch(() => {});
+          this.onCrash();
+          break;
         }
         await this.sleep(3_000);
       }
@@ -297,6 +353,7 @@ export class Worker {
 
   private async waitForQueueExit(): Promise<void> {
     while (this.running) {
+      this.setFocus("waiting in queue");
       await this.sleep(1_500);
       if (!this.page) break;
       const state = await detectState(this.page).catch(() => this.state);
@@ -314,6 +371,8 @@ export class Worker {
   private async refresh(): Promise<void> {
     if (!this.page) return;
     this.setState(WORKER_STATES.RELOADING);
+    this.setFocus("refreshing page");
+    await this.sleep(this.jitter(RELOAD_JITTER_MIN_MS, RELOAD_JITTER_MAX_MS));
     try {
       await this.page.reload({ waitUntil: "commit", timeout: 8_000 });
     } catch {}
@@ -321,17 +380,25 @@ export class Worker {
 
   private async clickPrimary(): Promise<void> {
     if (!this.page) return;
+    this.setFocus("finding buy button");
     const btn = await findPrimaryButton(this.page);
     if (!btn) {
       this.log("no primary button found");
       return;
     }
+    this.setFocus("clicking buy button");
+    await this.sleep(this.jitter(CLICK_JITTER_MIN_MS, CLICK_JITTER_MAX_MS));
     try {
       await btn.click({ timeout: 2_000 });
       this.log("CLICK");
     } catch (err) {
       this.log(`i cant fucking click: ${err}`);
     }
+  }
+
+  private setFocus(text: string): void {
+    this.currentFocus = text;
+    this.emitState();
   }
 
   private setState(state: WorkerState): void {
@@ -347,8 +414,9 @@ export class Worker {
         state: this.state,
         url: this.page?.url() ?? "",
         targetUrl: this.targetUrl,
-        lastAction: `set to ${this.state}`,
+        focus: this.currentFocus,
         proxy: this.credential.proxy ?? null,
+        lastNet: this.lastNet,
       });
     } catch {}
   }
@@ -362,6 +430,14 @@ export class Worker {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
+  }
+
+  private jitter(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min)) + min;
+  }
+
+  private urlShort(url: string): string {
+    return url.length > 40 ? "…" + url.slice(-40) : url;
   }
 
   private loadSession(sessionPath: string): string | undefined {

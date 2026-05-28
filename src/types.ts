@@ -29,8 +29,9 @@ export interface WorkerStatus {
   state: WorkerState;
   url: string;
   targetUrl: string;
-  lastAction: string;
+  focus: string;
   proxy: string | null;
+  lastNet: { status: number; url: string } | null;
 }
 
 export interface ControllerMessage {

@@ -3,12 +3,13 @@ import fs from "fs";
 import path from "path";
 import { getCtx } from "./context";
 import { renderInitialPage } from "./renderer";
-import { DASHBOARD_PORT, WS_PORT } from "../constants";
+import { DASHBOARD_PORT, WS_PORT, WORKER_COMMANDS } from "../constants";
 import type { Config, SpawnOptions, WorkerCommand, ControllerMessage } from "./types";
 import type { Controller } from "./controller";
 import type { WorkerPool } from "./worker-pool";
+import type { Scheduler } from "./scheduler";
 
-export function startDashboard(controller: Controller, pool: WorkerPool): http.Server {
+export function startDashboard(controller: Controller, pool: WorkerPool, scheduler: Scheduler): http.Server {
   const template = buildTemplate();
 
   const server = http.createServer((req, res) => {
@@ -35,8 +36,15 @@ export function startDashboard(controller: Controller, pool: WorkerPool): http.S
             respond(res, 400, { error: "Body must be a JSON object" });
             return;
           }
-          const { config } = getCtx();
+          const { config, bus } = getCtx();
           Object.assign(config, patch);
+
+          if ("saleOpenTime" in patch && new Date(config.saleOpenTime).getTime() > Date.now()) {
+            scheduler.reset();
+            pool.setPhase("pre");
+            bus.emit("cmd:all", { command: WORKER_COMMANDS.STOP });
+          }
+
           respond(res, 200, { ok: true });
         } catch {
           respond(res, 400, { error: "Invalid JSON" });

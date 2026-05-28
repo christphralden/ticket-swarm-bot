@@ -13,8 +13,8 @@
       --border:       #1c1c1c;
       --border-hi:    #2a2a2a;
       --text:         #a8a8a8;
-      --text-dim:     #444;
-      --text-muted:   #666;
+      --text-dim:     #666;
+      --text-muted:   #999;
       --text-hi:      #d8d8d8;
       --green:        #00ff88;
       --green-dim:    #00cc66;
@@ -237,17 +237,19 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      color: var(--text);
     }
     .wtable tbody tr:hover td { background: rgba(255,255,255,0.018); }
 
     /* col widths */
     .wtable th:nth-child(1), .wtable td:nth-child(1) { width: 38px; color: var(--text-dim); }
     .wtable th:nth-child(2), .wtable td:nth-child(2) { width: 155px; }
-    .wtable th:nth-child(3), .wtable td:nth-child(3) { width: 195px; font-size: 11px; color: var(--text-muted); }
-    .wtable th:nth-child(4), .wtable td:nth-child(4) { width: 195px; font-size: 11px; color: var(--text-muted); }
-    .wtable th:nth-child(5), .wtable td:nth-child(5) { width: 170px; font-size: 11px; color: var(--text-muted); }
-    .wtable th:nth-child(6), .wtable td:nth-child(6) { width: 90px;  font-size: 11px; color: var(--text-muted); }
-    .wtable th:nth-child(7), .wtable td:nth-child(7) { width: auto; }
+    .wtable th:nth-child(3), .wtable td:nth-child(3) { width: 180px; font-size: 11px; color: var(--text-muted); }
+    .wtable th:nth-child(4), .wtable td:nth-child(4) { width: 180px; font-size: 11px; color: var(--text-muted); }
+    .wtable th:nth-child(5), .wtable td:nth-child(5) { width: 160px; font-size: 11px; color: var(--text-muted); }
+    .wtable th:nth-child(6), .wtable td:nth-child(6) { width: 140px; font-size: 11px; }
+    .wtable th:nth-child(7), .wtable td:nth-child(7) { width: 80px;  font-size: 11px; color: var(--text-muted); }
+    .wtable th:nth-child(8), .wtable td:nth-child(8) { width: auto; }
 
     /* row states */
     .row-error    td { background: rgba(255,68,68,0.04) !important; }
@@ -410,13 +412,14 @@
           <th>STATE</th>
           <th>TARGET</th>
           <th>CURRENT URL</th>
-          <th>LAST ACTION</th>
+          <th>FOCUS</th>
+          <th>LAST REQ</th>
           <th>PROXY</th>
           <th>ACTIONS</th>
         </tr>
       </thead>
       <tbody id="wtbody">
-        <tr id="empty-row"><td class="empty-td" colspan="7">no workers spawned — click SPAWN ALL to begin</td></tr>
+        <tr id="empty-row"><td class="empty-td" colspan="8">no workers spawned — click SPAWN ALL to begin</td></tr>
       </tbody>
     </table>
   </div>
@@ -537,20 +540,29 @@
       return `<span class="${cls}" style="color:${color}">${spin}${state}</span>`;
     }
 
+    function netBadge(net) {
+      if (!net) return '<span style="color:#444">—</span>';
+      const c = net.status >= 500 ? '#ff4444' : net.status >= 400 ? '#f0a500' : net.status >= 300 ? '#4db8ff' : '#00cc66';
+      const raw = net.url.replace(/^https?:\/\/[^/]+/, '') || net.url;
+      const u = trunc(raw, 22);
+      return `<span style="color:${c}">${net.status}</span> <span style="color:#666">${esc(u)}</span>`;
+    }
+
     function rowHtml(w) {
       const isErr      = ERROR_STATES.has(w.state);
       const isCheckout = CHECKOUT_STATES.has(w.state);
       const cls        = isCheckout ? 'row-checkout' : isErr ? 'row-error' : '';
-      const url        = trunc(w.url, 36) || '—';
-      const target     = trunc(w.targetUrl, 36) || '—';
-      const action     = trunc(w.lastAction, 32) || '—';
-      const proxy      = trunc(w.proxy || '—', 20);
+      const url        = trunc(w.url, 32) || '—';
+      const target     = trunc(w.targetUrl, 32) || '—';
+      const focus      = trunc(w.focus, 30) || '—';
+      const proxy      = trunc(w.proxy || '—', 18);
       return `<tr id="wr-${w.id}" class="${cls}">
         <td>${w.id}</td>
         <td>${stateBadge(w.state)}</td>
         <td title="${esc(w.targetUrl)}">${esc(target)}</td>
         <td title="${esc(w.url)}">${esc(url)}</td>
-        <td title="${esc(w.lastAction)}">${esc(action)}</td>
+        <td title="${esc(w.focus)}">${esc(focus)}</td>
+        <td>${netBadge(w.lastNet)}</td>
         <td>${esc(proxy)}</td>
         <td class="acts">
           <button onclick="cmd('START',${w.id})">START</button>
@@ -565,7 +577,7 @@
 
     function resetTable() {
       document.getElementById('wtbody').innerHTML =
-        '<tr id="empty-row"><td class="empty-td" colspan="7">no workers spawned — click SPAWN ALL to begin</td></tr>';
+        '<tr id="empty-row"><td class="empty-td" colspan="8">no workers spawned — click SPAWN ALL to begin</td></tr>';
     }
 
     function upsertRow(w) {

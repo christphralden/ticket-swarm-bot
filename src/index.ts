@@ -5,7 +5,7 @@ import { runWithCtx, type AppContext } from "./context";
 import { WorkerPool } from "./worker-pool";
 import { Controller } from "./controller";
 import { startDashboard } from "./dashboard";
-import { waitUntil } from "./scheduler";
+import { Scheduler } from "./scheduler";
 import { WORKER_COMMANDS } from "../constants";
 import type { Config } from "./types";
 
@@ -33,21 +33,8 @@ async function main() {
   await runWithCtx(ctx, async () => {
     const pool = new WorkerPool();
     const controller = new Controller();
-    startDashboard(controller, pool);
 
-    controller.setOnCheckout((id) => {
-      bus.emit("system:log", { scope: "main", message: `worker ${id} is in CHECKOUT — take over manually in the browser` });
-    });
-
-    process.on("SIGINT", async () => {
-      console.log("\n[main] shutting down...");
-      bus.emit("cmd:all", { command: WORKER_COMMANDS.STOP });
-      await Promise.all(pool.getAll().map((w) => w.close()));
-      controller.close();
-      process.exit(0);
-    });
-
-    await waitUntil(
+    const scheduler = new Scheduler(
       () => new Date(config.saleOpenTime),
       () => {
         pool.setPhase("navigate");
@@ -60,10 +47,33 @@ async function main() {
         for (const w of pool.getAll()) {
           if (w.isLaunched()) w.start().catch(() => {});
         }
-      }
+      },
     );
+
+    startDashboard(controller, pool, scheduler);
+
+    controller.setOnCheckout((id) => {
+      bus.emit("system:log", { scope: "main", message: `worker ${id} is in CHECKOUT — take over manually in the browser` });
+    });
+
+    process.on("SIGINT", async () => {
+      console.log("\n[main] shutting down...");
+      scheduler.stop();
+      bus.emit("cmd:all", { command: WORKER_COMMANDS.STOP });
+      await Promise.all(pool.getAll().map((w) => w.close()));
+      controller.close();
+      process.exit(0);
+    });
   });
 }
+
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException]", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection]", reason);
+});
 
 main().catch((err) => {
   console.error("[main] fatal:", err);

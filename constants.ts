@@ -7,6 +7,11 @@ export const PRECISION_POLL_MS = 100;
 export const DEFAULT_REFRESH_MS = 2_000;
 export const SESSION_DIR = "./sessions";
 
+export const CLICK_JITTER_MIN_MS = 50;
+export const CLICK_JITTER_MAX_MS = 200;
+export const RELOAD_JITTER_MIN_MS = 100;
+export const RELOAD_JITTER_MAX_MS = 400;
+
 export const QUEUE_PATTERNS = [
   "queue-it.net",
   "waiting-room",
