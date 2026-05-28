@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PROBE INTEL</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0d0d0d;
+      --surface:      #111111;
+      --surface-2:    #141414;
+      --border:       #1c1c1c;
+      --border-hi:    #2a2a2a;
+      --text:         #a8a8a8;
+      --text-dim:     #666;
+      --text-muted:   #999;
+      --text-hi:      #d8d8d8;
+      --green:        #00ff88;
+      --green-dim:    #00cc66;
+      --amber:        #f0a500;
+      --blue:         #4db8ff;
+      --red:          #ff4444;
+      --cyan:         #00d4ff;
+      --yellow:       #ffc947;
+      --purple:       #b48eff;
+      --font:         Consolas, 'Courier New', 'Liberation Mono', monospace;
+      --sz:           12px;
+      --header-h:     44px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: var(--sz);
+      line-height: 1.5;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.035) 2px, rgba(0,0,0,0.035) 4px);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Header ── */
+    .hdr {
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-hi);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .hdr-left  { display: flex; align-items: center; gap: 0; }
+    .logo      { color: var(--green); font-size: 14px; font-weight: bold; letter-spacing: 0.22em; text-shadow: 0 0 10px rgba(0,255,136,0.35); margin-right: 16px; }
+    .hdr-right { display: flex; align-items: center; gap: 8px; }
+
+    /* ── Nav tabs ── */
+    .nav-tabs { display: flex; align-items: stretch; gap: 0; }
+    .nav-tab {
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      height: var(--header-h);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.1s, border-color 0.1s;
+      cursor: pointer;
+    }
+    .nav-tab:hover { color: var(--text-hi); }
+    .nav-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+    /* ── Buttons ── */
+    button {
+      background: var(--surface-2);
+      border: 1px solid var(--border-hi);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 5px 10px;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+      white-space: nowrap;
+      outline: none;
+    }
+    button:hover  { background: #1c1c1c; border-color: #3a3a3a; color: var(--text-hi); }
+    button:active { background: #222; }
+    button:disabled { opacity: 0.4; cursor: default; }
+    .btn-probe { border-color: rgba(0,212,255,0.3); color: #3a8899; }
+    .btn-probe:hover { background: rgba(0,212,255,0.08); border-color: var(--cyan); color: var(--cyan); }
+    .btn-probe.running { color: var(--cyan); border-color: var(--cyan); animation: probePulse 0.9s ease-in-out infinite; }
+    @keyframes probePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+    .btn-stop { border-color: rgba(255,68,68,0.3); color: #884444; }
+    .btn-stop:hover { background: rgba(255,68,68,0.08); border-color: var(--red); color: var(--red); }
+
+    /* ── Layout ── */
+    .page { padding: 20px; max-width: 1200px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Meta bar ── */
+    .meta-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border-hi);
+      flex-wrap: wrap;
+    }
+    .meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .meta-label { font-size: 9px; letter-spacing: 0.14em; color: var(--text-dim); }
+    .meta-val   { font-size: 12px; color: var(--text-hi); }
+    .meta-sep   { width: 1px; height: 28px; background: var(--border-hi); flex-shrink: 0; }
+
+    /* ── Section ── */
+    .section { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border-hi); }
+    .section-hdr {
+      padding: 7px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-hdr .pill {
+      font-size: 10px;
+      padding: 1px 7px;
+      border-radius: 10px;
+      letter-spacing: 0.06em;
+    }
+    .section-body { background: var(--surface-2); }
+
+    /* ── Cards grid ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border-hi);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .card-title { font-size: 9px; letter-spacing: 0.16em; color: var(--text-dim); }
+    .card-val   { font-size: 18px; letter-spacing: 0.04em; }
+    .card-sub   { font-size: 10px; color: var(--text-dim); }
+    .card-rows  { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+    .card-row   { display: flex; justify-content: space-between; font-size: 11px; border-top: 1px solid var(--border); padding-top: 4px; }
+    .card-row-k { color: var(--text-dim); }
+    .card-row-v { color: var(--text-hi); text-align: right; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Vendor badge colors ── */
+    .v-none       { color: var(--green-dim); }
+    .v-akamai     { color: var(--amber); }
+    .v-cloudflare { color: var(--amber); }
+    .v-perimeterx { color: var(--red); }
+    .v-datadome   { color: var(--red); }
+    .v-queue-it         { color: var(--purple); }
+    .v-akamai-waiting-room { color: var(--amber); }
+    .v-custom     { color: var(--yellow); }
+
+    /* ── Button hints table ── */
+    .hints-table { width: 100%; border-collapse: collapse; }
+    .hints-table th {
+      text-align: left;
+      padding: 7px 12px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border-hi);
+      font-weight: normal;
+      background: var(--surface);
+    }
+    .hints-table td {
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      vertical-align: middle;
+    }
+    .hints-table tbody tr:hover td { background: rgba(255,255,255,0.018); }
+    .hints-table .col-rank  { width: 36px; color: var(--text-dim); }
+    .hints-table .col-text  { width: 180px; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+    .hints-table .col-sel   { color: var(--cyan); font-size: 11px; word-break: break-all; white-space: pre-wrap; }
+    .hints-table .col-meta  { color: var(--text-dim); font-size: 10px; word-break: break-all; }
+    .hints-table .col-conf  { width: 140px; }
+    .hints-table .col-src   { width: 90px; color: var(--text-muted); }
+
+    .conf-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .conf-bar-bg   { flex: 1; height: 6px; background: var(--border-hi); }
+    .conf-bar-fill { height: 100%; background: var(--cyan); }
+    .conf-pct      { font-size: 10px; color: var(--text-muted); width: 32px; text-align: right; }
+
+    /* ── Request list ── */
+    .req-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      max-height: 400px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #252525 var(--surface-2);
+    }
+    .req-list::-webkit-scrollbar { width: 4px; }
+    .req-list::-webkit-scrollbar-track { background: var(--surface-2); }
+    .req-list::-webkit-scrollbar-thumb { background: #252525; }
+    .req-item {
+      border-bottom: 1px solid var(--border);
+      padding: 6px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .req-item:hover { background: rgba(255,255,255,0.018); }
+    .req-item-top { display: flex; align-items: center; gap: 8px; }
+    .req-method {
+      flex-shrink: 0;
+      font-size: 10px;
+      width: 38px;
+      text-align: center;
+      padding: 1px 0;
+      border: 1px solid currentColor;
+      opacity: 0.7;
+    }
+    .req-method.GET    { color: var(--green-dim); }
+    .req-method.POST   { color: var(--amber); }
+    .req-method.PUT    { color: var(--blue); }
+    .req-method.PATCH  { color: var(--purple); }
+    .req-method.DELETE { color: var(--red); }
+    .req-status {
+      flex-shrink: 0;
+      font-size: 10px;
+      width: 34px;
+      text-align: right;
+    }
+    .req-url { flex: 1; font-size: 11px; color: var(--text-muted); word-break: break-all; }
+    .req-url.highlight { color: var(--green); }
+    .req-source { flex-shrink: 0; font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; }
+    .req-body {
+      font-size: 10px;
+      color: var(--text-dim);
+      padding-left: 46px;
+      font-style: italic;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .req-shape {
+      padding-left: 46px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .shape-key {
+      background: rgba(0,212,255,0.07);
+      color: var(--cyan);
+      padding: 1px 6px;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+    }
+    .ep-tag {
+      font-size: 9px;
+      padding: 1px 5px;
+      margin-left: 4px;
+      border: 1px solid currentColor;
+      opacity: 0.8;
+    }
+    .ep-tag.inv { color: var(--green); }
+    .ep-tag.co  { color: var(--amber); }
+
+    .ep-filter {
+      background: var(--bg);
+      border: none;
+      border-bottom: 1px solid var(--border-hi);
+      color: var(--text-hi);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 6px 12px;
+      outline: none;
+      width: 100%;
+    }
+    .ep-filter::placeholder { color: var(--text-dim); }
+
+    /* ── Checkout flow ── */
+    .checkout-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .checkout-cell {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      font-size: 11px;
+    }
+    .checkout-cell:nth-child(even) { border-right: none; }
+    .checkout-cell .ck-label { font-size: 9px; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 3px; }
+    .checkout-cell .ck-val   { color: var(--text-hi); word-break: break-all; }
+    .checkout-cell .ck-val.mono { color: var(--cyan); }
+
+    /* ── Empty / no data ── */
+    .empty {
+      padding: 28px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+    }
+
+    /* ── Raw JSON ── */
+    details.raw-section { border: 1px solid var(--border-hi); }
+    details.raw-section summary {
+      padding: 7px 12px;
+      background: var(--surface);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--text-dim);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+      outline: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    details.raw-section summary::-webkit-details-marker { display: none; }
+    details.raw-section summary::before { content: '+'; }
+    details.raw-section[open] summary::before { content: '−'; }
+    pre.raw-json {
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 12px;
+      overflow: auto;
+      max-height: 400px;
+      scrollbar-width: thin;
+      scrollbar-color: #252525 var(--surface-2);
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border-hi);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      display: none;
+      z-index: 200;
+      transition: opacity 0.3s;
+    }
+    #toast.ok  { border-color: var(--green-dim); color: var(--green); }
+    #toast.err { border-color: var(--red); color: var(--red); }
+    #toast.info { border-color: var(--cyan); color: var(--cyan); }
+
+    /* ── No intel ── */
+    #no-intel {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    #no-intel .big { font-size: 28px; color: var(--border-hi); letter-spacing: 0.3em; }
+  </style>
+</head>
+<body>
+
+  <header class="hdr">
+    <div class="hdr-left">
+      <span class="logo">TICKET BOT</span>
+      <nav class="nav-tabs">
+        <a class="nav-tab" href="/">DASHBOARD</a>
+        <a class="nav-tab active" href="/probe">PROBE</a>
+      </nav>
+    </div>
+    <div class="hdr-right">
+      <span id="probe-ts" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em"></span>
+      <button id="stop-btn" class="btn-stop" onclick="stopProbe()" disabled>STOP</button>
+      <button id="probe-btn" class="btn-probe" onclick="runProbe()">RUN PROBE</button>
+    </div>
+  </header>
+
+  <div id="no-intel">
+    <div class="big">NO DATA</div>
+    <div>No probe has been run yet.<br>Click RUN PROBE to scan the target site.</div>
+  </div>
+
+  <div id="intel-view" style="display:none">
+    <div class="page">
+
+      <!-- Meta bar -->
+      <div class="meta-bar" id="meta-bar"></div>
+
+      <!-- Cards: antibot, queue, spa -->
+      <div class="cards" id="cards"></div>
+
+      <!-- Button hints -->
+      <div class="section">
+        <div class="section-hdr">
+          BUTTON HINTS
+          <span id="hint-count" class="pill" style="background:rgba(0,212,255,0.1);color:var(--cyan)"></span>
+        </div>
+        <div class="section-body">
+          <div id="hints-body"></div>
+        </div>
+      </div>
+
+      <!-- Inventory endpoint -->
+      <div class="section" id="inv-section" style="display:none">
+        <div class="section-hdr" style="color:var(--green)">INVENTORY ENDPOINT <span style="font-size:9px;color:var(--text-dim);margin-left:6px">poll this directly — fires before DOM updates</span></div>
+        <div class="section-body" style="padding:10px 12px;">
+          <span id="inv-endpoint" style="color:var(--green);font-size:12px;word-break:break-all"></span>
+        </div>
+      </div>
+
+      <!-- Checkout flow -->
+      <div class="section" id="checkout-section" style="display:none">
+        <div class="section-hdr">CHECKOUT FLOW</div>
+        <div class="section-body" id="checkout-body"></div>
+      </div>
+
+      <!-- API requests -->
+      <div class="section">
+        <div class="section-hdr">
+          API REQUESTS
+          <span id="ep-count" class="pill" style="background:rgba(255,199,71,0.1);color:var(--yellow)"></span>
+        </div>
+        <div class="section-body">
+          <input id="ep-filter" class="ep-filter" type="text" placeholder="filter by url, method, or response key…" oninput="filterRequests()">
+          <ul id="req-list" class="req-list"></ul>
+        </div>
+      </div>
+
+      <!-- Raw JSON -->
+      <details class="raw-section">
+        <summary>RAW DUMP</summary>
+        <pre id="raw-json" class="raw-json"></pre>
+      </details>
+
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    let allRequests = [];
+    let currentIntel = null;
+    let probeRunning = false;
+
+    /* ── Probe controls ── */
+    async function runProbe() {
+      if (probeRunning) return;
+      setProbeRunning(true);
+      showToast('probe started — scanning site…', 'info', 0);
+
+      try {
+        const r = await fetch('/probe', { method: 'POST' });
+        if (r.status === 202 || r.ok) {
+          pollForFreshIntel();
+        } else {
+          const j = await r.json().catch(() => ({}));
+          showToast(j.error || 'probe request failed', 'err');
+          setProbeRunning(false);
+        }
+      } catch(e) {
+        showToast('fetch error: ' + e.message, 'err');
+        setProbeRunning(false);
+      }
+    }
+
+    async function stopProbe() {
+      try {
+        await fetch('/probe/stop', { method: 'POST' });
+        showToast('probe stopped', 'info');
+      } catch {}
+      setProbeRunning(false);
+    }
+
+    function setProbeRunning(running) {
+      probeRunning = running;
+      const btn  = document.getElementById('probe-btn');
+      const stop = document.getElementById('stop-btn');
+      btn.classList.toggle('running', running);
+      btn.disabled = running;
+      stop.disabled = !running;
+    }
+
+    function pollForFreshIntel() {
+      let tries = 0;
+      const iv = setInterval(async () => {
+        tries++;
+        try {
+          const r = await fetch('/probe/intel');
+          if (r.ok) {
+            const intel = await r.json();
+            const age = Date.now() - intel.ts;
+            if (age < 15000) {
+              clearInterval(iv);
+              setProbeRunning(false);
+              renderIntel(intel);
+              showToast('probe complete', 'ok');
+              return;
+            }
+          }
+        } catch {}
+        if (tries > 90) {
+          clearInterval(iv);
+          setProbeRunning(false);
+          showToast('probe timed out after 3min', 'err');
+        }
+      }, 2000);
+    }
+
+    /* ── Render ── */
+    function renderIntel(intel) {
+      currentIntel = intel;
+      document.getElementById('no-intel').style.display = 'none';
+      document.getElementById('intel-view').style.display = 'block';
+
+      const age = Math.round((Date.now() - intel.ts) / 1000);
+      const ageStr = age < 60 ? `${age}s ago` : age < 3600 ? `${Math.round(age/60)}m ago` : `${Math.round(age/3600)}h ago`;
+      document.getElementById('probe-ts').textContent = `last run: ${new Date(intel.ts).toLocaleTimeString()} (${ageStr})`;
+
+      renderMeta(intel);
+      renderCards(intel);
+      renderButtonHints(intel.buttonHints || []);
+      renderInventory(intel);
+      renderCheckout(intel.checkoutFlow);
+      renderRequests(intel.apiRequests || []);
+      document.getElementById('raw-json').textContent = JSON.stringify(intel, null, 2);
+    }
+
+    function renderMeta(intel) {
+      const el = document.getElementById('meta-bar');
+      const url = intel.targetUrl || '—';
+      const reqCount = (intel.apiRequests || []).length;
+      const items = [
+        ['TARGET', url],
+        null,
+        ['TYPE', intel.isSpa ? 'SPA (JS bundle)' : 'SSR'],
+        null,
+        ['ANTI-BOT', intel.antiBot?.vendor || 'none'],
+        null,
+        ['QUEUE SYS', intel.queueSystem?.type || 'none'],
+        null,
+        ['SAFE REFRESH', intel.antiBot?.recommendedRefreshMs ? intel.antiBot.recommendedRefreshMs + 'ms' : '—'],
+        null,
+        ['INVENTORY API', intel.inventoryEndpoint ? 'FOUND' : 'not found'],
+        null,
+        ['REQUESTS', String(reqCount)],
+      ];
+      el.innerHTML = items.map(item => {
+        if (!item) return `<div class="meta-sep"></div>`;
+        const valColor = item[0] === 'INVENTORY API' && item[1] === 'FOUND' ? 'color:var(--green)' :
+                         item[0] === 'ANTI-BOT' && item[1] !== 'none' ? 'color:var(--amber)' : '';
+        return `<div class="meta-item">
+          <div class="meta-label">${item[0]}</div>
+          <div class="meta-val" style="${valColor}" title="${esc(item[1])}">${esc(trunc(item[1], 40))}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderCards(intel) {
+      const el = document.getElementById('cards');
+      const cards = [];
+
+      const bot = intel.antiBot || {};
+      const botClass = 'v-' + (bot.vendor || 'none');
+      const botRows = [
+        bot.cookieName ? ['cookie', bot.cookieName] : null,
+        bot.recommendedRefreshMs ? ['safe refresh', bot.recommendedRefreshMs + 'ms'] : null,
+      ].filter(Boolean);
+      cards.push(`<div class="card">
+        <div class="card-title">ANTI-BOT PROTECTION</div>
+        <div class="card-val ${botClass}">${(bot.vendor || 'NONE').toUpperCase()}</div>
+        ${bot.vendor !== 'none' ? `<div class="card-sub">${botAdvice(bot.vendor)}</div>` : '<div class="card-sub" style="color:var(--green-dim)">no protection detected — can be aggressive</div>'}
+        <div class="card-rows">${botRows.map(r => `<div class="card-row"><span class="card-row-k">${r[0]}</span><span class="card-row-v">${r[1]}</span></div>`).join('')}</div>
+      </div>`);
+
+      const q = intel.queueSystem || {};
+      const qClass = 'v-' + (q.type || 'none');
+      const qRows = [
+        q.positionEndpoint ? ['position api', trunc(q.positionEndpoint, 28)] : null,
+        q.passedSignal     ? ['passed signal', q.passedSignal] : null,
+      ].filter(Boolean);
+      cards.push(`<div class="card">
+        <div class="card-title">QUEUE SYSTEM</div>
+        <div class="card-val ${qClass}">${(q.type || 'NONE').toUpperCase().replace(/-/g,' ')}</div>
+        <div class="card-sub">${queueAdvice(q.type)}</div>
+        <div class="card-rows">${qRows.map(r => `<div class="card-row"><span class="card-row-k">${r[0]}</span><span class="card-row-v" title="${esc(r[1])}">${esc(r[1])}</span></div>`).join('')}</div>
+      </div>`);
+
+      cards.push(`<div class="card">
+        <div class="card-title">PAGE ARCHITECTURE</div>
+        <div class="card-val" style="color:var(--blue)">${intel.isSpa ? 'SPA' : 'SSR'}</div>
+        <div class="card-sub">${intel.isSpa
+          ? 'JS bundle app — use network intercept to detect state changes, DOM may lag'
+          : 'Server-rendered — DOM state is authoritative, page reload reflects live state'}</div>
+      </div>`);
+
+      cards.push(`<div class="card">
+        <div class="card-title">INVENTORY ENDPOINT</div>
+        <div class="card-val" style="color:${intel.inventoryEndpoint ? 'var(--green)' : 'var(--text-dim)'}">${intel.inventoryEndpoint ? 'FOUND' : 'NOT FOUND'}</div>
+        <div class="card-sub">${intel.inventoryEndpoint
+          ? 'Workers can poll this every 200ms — fires before page DOM updates'
+          : 'No availability API detected — relying on DOM state detection'}</div>
+      </div>`);
+
+      el.innerHTML = cards.join('');
+    }
+
+    function renderButtonHints(hints) {
+      const countEl = document.getElementById('hint-count');
+      countEl.textContent = hints.length;
+      const body = document.getElementById('hints-body');
+      if (!hints.length) {
+        body.innerHTML = '<div class="empty">no button hints found — workers will use static selector fallback</div>';
+        return;
+      }
+      const top = hints.slice(0, 20);
+      body.innerHTML = `<table class="hints-table">
+        <thead><tr>
+          <th class="col-rank">#</th>
+          <th class="col-text">TEXT</th>
+          <th>SELECTOR / ATTRS</th>
+          <th class="col-conf">CONFIDENCE</th>
+          <th class="col-src">SOURCE</th>
+        </tr></thead>
+        <tbody>${top.map((h, i) => {
+          const metaParts = [];
+          if (h.classes) metaParts.push(`.${h.classes.trim().split(/\s+/).join('.')}`);
+          if (h.dataAttrs && h.dataAttrs.length) metaParts.push(h.dataAttrs.slice(0, 3).join(' '));
+          return `<tr>
+            <td class="col-rank">${i + 1}</td>
+            <td class="col-text" title="${esc(h.text || '')}">${esc(trunc(h.text || '—', 24))}</td>
+            <td>
+              <div class="col-sel">${esc(h.selector)}</div>
+              ${metaParts.length ? `<div class="col-meta">${esc(metaParts.join(' · '))}</div>` : ''}
+            </td>
+            <td class="col-conf">
+              <div class="conf-bar-wrap">
+                <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:${Math.round(h.confidence * 100)}%"></div></div>
+                <span class="conf-pct">${Math.round(h.confidence * 100)}%</span>
+              </div>
+            </td>
+            <td class="col-src">${h.source}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+      ${hints.length > 20 ? `<div style="padding:6px 12px;font-size:10px;color:var(--text-dim)">${hints.length - 20} more not shown</div>` : ''}`;
+    }
+
+    function renderInventory(intel) {
+      const sec = document.getElementById('inv-section');
+      if (intel.inventoryEndpoint) {
+        sec.style.display = '';
+        document.getElementById('inv-endpoint').textContent = intel.inventoryEndpoint;
+      } else {
+        sec.style.display = 'none';
+      }
+    }
+
+    function renderCheckout(flow) {
+      const sec = document.getElementById('checkout-section');
+      const body = document.getElementById('checkout-body');
+      if (!flow) { sec.style.display = 'none'; return; }
+      sec.style.display = '';
+      const rows = [
+        ['ENDPOINT', flow.endpoint, true],
+        ['METHOD', flow.method, false],
+        ['CSRF ENDPOINT', flow.csrfEndpoint || '—', true],
+        ['REQUIRED HEADERS', (flow.requiredHeaders || []).join(', ') || '—', false],
+      ];
+      const payloadKeys = Object.keys(flow.payloadShape || {});
+      body.innerHTML = `<div class="checkout-grid">
+        ${rows.map(([k, v, mono]) => `<div class="checkout-cell">
+          <div class="ck-label">${k}</div>
+          <div class="ck-val ${mono ? 'mono' : ''}">${esc(v)}</div>
+        </div>`).join('')}
+      </div>
+      ${payloadKeys.length ? `<div style="padding:8px 12px;border-top:1px solid var(--border)">
+        <div style="font-size:9px;letter-spacing:0.12em;color:var(--text-dim);margin-bottom:6px">PAYLOAD FIELDS</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${payloadKeys.map(k => `<span style="background:rgba(0,212,255,0.07);color:var(--cyan);padding:2px 8px;font-size:11px">${esc(k)}</span>`).join('')}
+        </div>
+      </div>` : ''}`;
+    }
+
+    function renderRequests(requests) {
+      const countEl = document.getElementById('ep-count');
+      countEl.textContent = requests.length;
+      allRequests = requests;
+      filterRequests();
+    }
+
+    function filterRequests() {
+      const filter = document.getElementById('ep-filter').value.toLowerCase();
+      const list = document.getElementById('req-list');
+      const filtered = allRequests.filter(r => {
+        if (!filter) return true;
+        return r.url.toLowerCase().includes(filter)
+          || (r.method || '').toLowerCase().includes(filter)
+          || (r.responseShape || []).some(k => k.toLowerCase().includes(filter));
+      });
+
+      if (!filtered.length) {
+        list.innerHTML = '<li style="padding:10px 12px;color:var(--text-dim);font-size:11px">no requests match</li>';
+        return;
+      }
+
+      const inv = currentIntel?.inventoryEndpoint;
+      const checkout = currentIntel?.checkoutFlow?.endpoint;
+
+      list.innerHTML = filtered.map(r => {
+        const isInv = r.url === inv;
+        const isCo  = r.url === checkout;
+        const highlight = isInv || isCo;
+        const method = r.method || 'GET';
+        const status = r.responseStatus;
+        const statusColor = !status ? '#666'
+          : status >= 500 ? 'var(--red)'
+          : status >= 400 ? 'var(--amber)'
+          : status >= 300 ? 'var(--blue)'
+          : 'var(--green-dim)';
+        const tag = isInv ? '<span class="ep-tag inv">INVENTORY</span>'
+                  : isCo  ? '<span class="ep-tag co">CHECKOUT</span>'
+                  : '';
+        const srcBadge = r.source === 'bundle'
+          ? '<span style="font-size:9px;color:var(--purple);letter-spacing:0.06em">BUNDLE</span>'
+          : '';
+        const bodyPart = r.requestBody
+          ? `<div class="req-body">body: ${esc(trunc(r.requestBody, 80))}</div>`
+          : '';
+        const shapePart = r.responseShape && r.responseShape.length
+          ? `<div class="req-shape">${r.responseShape.map(k => `<span class="shape-key">${esc(k)}</span>`).join('')}</div>`
+          : '';
+        return `<li class="req-item">
+          <div class="req-item-top">
+            <span class="req-method ${method}">${method}</span>
+            ${status ? `<span class="req-status" style="color:${statusColor}">${status}</span>` : ''}
+            <span class="req-url ${highlight ? 'highlight' : ''}">${esc(r.url)}${tag}</span>
+            ${srcBadge}
+          </div>
+          ${bodyPart}
+          ${shapePart}
+        </li>`;
+      }).join('');
+    }
+
+    /* ── Utils ── */
+    function botAdvice(v) {
+      if (v === 'akamai')     return 'keep _abck warm — lower refresh rate, inject mouse events';
+      if (v === 'cloudflare') return 'cf_clearance must be fresh — use slower click timing';
+      if (v === 'perimeterx') return '_px3 cookie required — human-like interaction mandatory';
+      if (v === 'datadome')   return 'datadome cookie — avoid rapid-fire requests';
+      return '';
+    }
+    function queueAdvice(t) {
+      if (t === 'queue-it')           return 'poll QueueITCallback JS object or position API directly';
+      if (t === 'akamai-waiting-room') return 'monitor Akamai waiting room token endpoint';
+      if (t === 'custom')             return 'custom queue — use DOM + network pattern detection';
+      return 'no queue detected — workers go straight to sale';
+    }
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function trunc(s, n) {
+      s = String(s || '');
+      return s.length > n ? s.slice(0, n - 1) + '…' : s;
+    }
+
+    let toastTimer = null;
+    function showToast(msg, type, duration = 3500) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = type;
+      el.style.display = 'block';
+      clearTimeout(toastTimer);
+      if (duration > 0) toastTimer = setTimeout(() => { el.style.display = 'none'; }, duration);
+    }
+
+    /* ── Boot: load persisted intel ── */
+    (async () => {
+      try {
+        const r = await fetch('/probe/intel');
+        if (r.ok) renderIntel(await r.json());
+      } catch {}
+    })();
+  </script>
+</body>
+</html>

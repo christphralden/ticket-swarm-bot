@@ -1,11 +1,12 @@
 import { EventEmitter } from "events";
-import type { WorkerStatus, ControllerMessage } from "./types";
+import type { WorkerStatus, ControllerMessage, ProbeIntel } from "./types";
 
 export type BusEvents = {
   "worker:state": WorkerStatus;
   "worker:log": { id: number; message: string };
   "worker:removed": { id: number };
   "system:log": { scope: string; message: string };
+  "probe:intel": ProbeIntel;
   "cmd:all": ControllerMessage;
   [k: `cmd:${number}`]: ControllerMessage;
 };

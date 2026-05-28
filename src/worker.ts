@@ -19,7 +19,7 @@ import {
   RELOAD_JITTER_MIN_MS,
   RELOAD_JITTER_MAX_MS,
 } from "../constants";
-import type { WorkerCredential, WorkerState, ControllerMessage } from "./types";
+import type { WorkerCredential, WorkerState, ControllerMessage, ProbeIntel } from "./types";
 
 export class Worker {
   private browser: Browser | null = null;
@@ -31,8 +31,11 @@ export class Worker {
   private _closed = false;
   private consecutiveErrors = 0;
   private unsubscribeCmd: (() => void) | null = null;
+  private unsubscribeIntel: (() => void) | null = null;
   private currentFocus = "";
   private lastNet: { status: number; url: string } | null = null;
+  private latestIntel: ProbeIntel | null = null;
+  private inventoryPollRunning = false;
 
   constructor(
     private id: number,
@@ -118,6 +121,10 @@ export class Worker {
     this.unsubscribeCmd = bus.on(`cmd:${this.id}`, (msg) =>
       this.handleCommand(msg),
     );
+    this.unsubscribeIntel = bus.on("probe:intel", (intel) => {
+      this.latestIntel = intel;
+      this.log(`received probe intel: ${intel.buttonHints.length} hint(s), antiBot: ${intel.antiBot.vendor}`);
+    });
 
     this.setState(WORKER_STATES.IDLE);
     this.setFocus("idle");
@@ -142,6 +149,10 @@ export class Worker {
     }
   }
 
+  setIntel(intel: ProbeIntel): void {
+    this.latestIntel = intel;
+  }
+
   async start(): Promise<void> {
     if (!this.page) return;
     this.running = true;
@@ -155,11 +166,16 @@ export class Worker {
       });
     }
 
+    if (this.latestIntel?.inventoryEndpoint && !this.inventoryPollRunning) {
+      this.startInventoryPoll(this.latestIntel.inventoryEndpoint);
+    }
+
     this.log("starting loop");
     await this.pollLoop();
   }
 
   stop(): void {
+    this.inventoryPollRunning = false;
     this.running = false;
     if (
       this.state !== WORKER_STATES.CHECKOUT &&
@@ -192,7 +208,7 @@ export class Worker {
             await this.page.goto(msg.url, { waitUntil: "domcontentloaded" });
           break;
         case WORKER_COMMANDS.FOCUS: {
-          const btn = await findPrimaryButton(this.page);
+          const btn = await findPrimaryButton(this.page, this.latestIntel);
           if (btn) {
             const info = await btn.evaluate((el: Element) => ({
               tag: el.tagName.toLowerCase(),
@@ -227,6 +243,7 @@ export class Worker {
         });
       }
     } catch {}
+    this.inventoryPollRunning = false;
     try {
       await this.browser?.close();
     } catch {}
@@ -234,12 +251,13 @@ export class Worker {
     this.context = null;
     this.page = null;
     this.unsubscribeCmd?.();
+    this.unsubscribeIntel?.();
   }
 
   private async onPageChange(): Promise<void> {
     if (!this.page || !this.running) return;
     const prevState = this.state;
-    const newState = await detectState(this.page).catch(() => this.state);
+    const newState = await detectState(this.page, this.latestIntel).catch(() => this.state);
     if (newState !== prevState) this.setState(newState);
 
     if (newState === WORKER_STATES.ACTIVE_SALE) {
@@ -275,7 +293,7 @@ export class Worker {
       try {
         this.setFocus("detecting state");
         const prevState = this.state;
-        const newState = await detectState(this.page);
+        const newState = await detectState(this.page, this.latestIntel);
         if (newState !== prevState) this.setState(newState);
 
         if (
@@ -313,7 +331,8 @@ export class Worker {
         }
 
         this.setFocus("sleeping");
-        await this.sleep(config.refreshIntervalMs);
+        const refreshMs = this.latestIntel?.antiBot.recommendedRefreshMs ?? config.refreshIntervalMs;
+        await this.sleep(refreshMs);
 
         if (
           newState !== WORKER_STATES.WAITING_ROOM &&
@@ -356,7 +375,7 @@ export class Worker {
       this.setFocus("waiting in queue");
       await this.sleep(1_500);
       if (!this.page) break;
-      const state = await detectState(this.page).catch(() => this.state);
+      const state = await detectState(this.page, this.latestIntel).catch(() => this.state);
       if (
         state !== WORKER_STATES.WAITING_ROOM &&
         state !== WORKER_STATES.IN_QUEUE
@@ -381,7 +400,7 @@ export class Worker {
   private async clickPrimary(): Promise<void> {
     if (!this.page) return;
     this.setFocus("finding buy button");
-    const btn = await findPrimaryButton(this.page);
+    const btn = await findPrimaryButton(this.page, this.latestIntel);
     if (!btn) {
       this.log("no primary button found");
       return;
@@ -394,6 +413,25 @@ export class Worker {
     } catch (err) {
       this.log(`i cant fucking click: ${err}`);
     }
+  }
+
+  private startInventoryPoll(endpoint: string): void {
+    this.inventoryPollRunning = true;
+    const poll = async () => {
+      while (this.inventoryPollRunning && this.running) {
+        try {
+          const res = await fetch(endpoint);
+          const text = await res.text();
+          const available = /"available"\s*:\s*true|"inStock"\s*:\s*true|"count"\s*:\s*[1-9]/i.test(text);
+          if (available) {
+            this.log("inventory endpoint signals available — firing clickPrimary");
+            await this.clickPrimary();
+          }
+        } catch {}
+        await this.sleep(200);
+      }
+    };
+    poll().catch(() => {});
   }
 
   private setFocus(text: string): void {

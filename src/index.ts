@@ -6,7 +6,9 @@ import { WorkerPool } from "./worker-pool";
 import { Controller } from "./controller";
 import { startDashboard } from "./dashboard";
 import { Scheduler } from "./scheduler";
-import { WORKER_COMMANDS } from "../constants";
+import { ProbeWorker } from "./probe-worker";
+import { ProxyRotator } from "./proxy-rotator";
+import { WORKER_COMMANDS, PROBE_RUN_OFFSET_MS } from "../constants";
 import type { Config } from "./types";
 
 async function main() {
@@ -50,7 +52,36 @@ async function main() {
       },
     );
 
-    startDashboard(controller, pool, scheduler);
+    const probeRotator = new ProxyRotator(config.probeProxies ?? []);
+    const probeWorker = new ProbeWorker(probeRotator);
+
+    {
+
+      const persistedIntel = probeWorker.loadPersistedIntel();
+      if (persistedIntel) {
+        bus.emit("probe:intel", persistedIntel);
+        bus.emit("system:log", { scope: "probe", message: `loaded persisted intel from disk (ts: ${new Date(persistedIntel.ts).toLocaleString()})` });
+      }
+
+      const saleTime = new Date(config.saleOpenTime).getTime();
+      const autoProbeAt = saleTime - PROBE_RUN_OFFSET_MS;
+      const delayMs = autoProbeAt - Date.now();
+
+      if (delayMs > 0) {
+        setTimeout(() => {
+          probeWorker!.runProbe().catch((err) => {
+            bus.emit("system:log", { scope: "probe", message: `auto probe failed: ${err}` });
+          });
+        }, delayMs);
+        bus.emit("system:log", { scope: "probe", message: `auto probe scheduled for T-15min (${new Date(autoProbeAt).toLocaleString()})` });
+      } else {
+        probeWorker.runProbe().catch((err) => {
+          bus.emit("system:log", { scope: "probe", message: `initial probe failed: ${err}` });
+        });
+      }
+    }
+
+    startDashboard(controller, pool, scheduler, probeWorker);
 
     controller.setOnCheckout((id) => {
       bus.emit("system:log", { scope: "main", message: `worker ${id} is in CHECKOUT — take over manually in the browser` });

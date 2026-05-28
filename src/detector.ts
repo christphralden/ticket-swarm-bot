@@ -10,22 +10,30 @@ import {
   BUY_DATA_ATTRS,
   WORKER_STATES,
 } from "../constants";
-import type { WorkerState } from "./types";
+import type { WorkerState, ProbeIntel } from "./types";
 
-export async function detectState(page: Page): Promise<WorkerState> {
+export async function detectState(page: Page, intel?: ProbeIntel | null): Promise<WorkerState> {
   const url = page.url();
 
-  if (QUEUE_PATTERNS.some((p) => url.includes(p))) return WORKER_STATES.WAITING_ROOM;
-  if (CHECKOUT_URL_PATTERNS.test(url)) return WORKER_STATES.CHECKOUT;
+  const queueUrlPatterns = [
+    ...QUEUE_PATTERNS,
+    ...(intel?.queueSystem.positionEndpoint ? [new URL(intel.queueSystem.positionEndpoint).hostname] : []),
+    ...(intel?.queueSystem.type !== "none" && intel?.queueSystem.type ? [intel.queueSystem.type] : []),
+  ];
 
-  // Check for buy button before doing the expensive full-body text scan
-  const btn = await findPrimaryButton(page);
+  if (queueUrlPatterns.some((p) => url.includes(p))) return WORKER_STATES.WAITING_ROOM;
+
+  const checkoutPatterns = intel?.checkoutFlow?.endpoint
+    ? new RegExp(CHECKOUT_URL_PATTERNS.source + "|" + escapeRegex(intel.checkoutFlow.endpoint), "i")
+    : CHECKOUT_URL_PATTERNS;
+  if (checkoutPatterns.test(url)) return WORKER_STATES.CHECKOUT;
+
+  const btn = await findPrimaryButton(page, intel);
   if (btn) {
     const enabled = await btn.isEnabled().catch(() => false);
     if (enabled) return WORKER_STATES.ACTIVE_SALE;
   }
 
-  // Only do the expensive body scan when we need to distinguish queue/soldout/pre-queue
   let bodyText = "";
   try {
     bodyText = await page.innerText("body", { timeout: 2_000 });
@@ -40,9 +48,13 @@ export async function detectState(page: Page): Promise<WorkerState> {
   return WORKER_STATES.PRE_QUEUE;
 }
 
-export async function findPrimaryButton(page: Page): Promise<Locator | null> {
-  // Race all strategies in parallel — return whichever finds a match first
+export async function findPrimaryButton(page: Page, intel?: ProbeIntel | null): Promise<Locator | null> {
+  const intelStrategies: (() => Locator)[] = (intel?.buttonHints ?? [])
+    .slice(0, 2)
+    .map((hint) => () => page.locator(hint.selector).first());
+
   const strategies: (() => Locator)[] = [
+    ...intelStrategies,
     () => page.getByRole("button", { name: BUY_BUTTON_TEXT }),
     () => page.locator(COMMON_PRIMARY_SELECTORS.join(", ")).first(),
     () => page.locator(BUY_DATA_ATTRS.join(", ")).first(),
@@ -61,6 +73,10 @@ export async function findPrimaryButton(page: Page): Promise<Locator | null> {
   if (found) return found;
 
   return findMostProminentButton(page);
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function findMostProminentButton(page: Page): Promise<Locator | null> {

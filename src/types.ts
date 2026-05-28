@@ -22,6 +22,59 @@ export interface Config {
   locale: string;
   timezoneId: string;
   userAgents: string[];
+  probeProxies?: string[];
+  katanaEnabled?: boolean;
+}
+
+export interface ProbeButtonHint {
+  selector: string;
+  confidence: number;
+  source: "katana" | "playwright";
+  text?: string;
+  classes?: string;
+  dataAttrs?: string[];
+}
+
+export interface CapturedRequest {
+  url: string;
+  method: string;
+  requestBody?: string;
+  responseStatus?: number;
+  responseShape?: string[];
+  source?: "xhr" | "bundle";
+}
+
+export interface CheckoutFlow {
+  endpoint: string;
+  method: string;
+  requiredHeaders: string[];
+  csrfEndpoint?: string;
+  payloadShape: Record<string, string>;
+}
+
+export interface QueueSystem {
+  type: "queue-it" | "akamai-waiting-room" | "custom" | "none";
+  positionEndpoint?: string;
+  passedSignal?: string;
+}
+
+export interface AntiBotStack {
+  vendor: "akamai" | "cloudflare" | "perimeterx" | "datadome" | "none";
+  cookieName?: string;
+  recommendedRefreshMs: number;
+}
+
+export interface ProbeIntel {
+  ts: number;
+  targetUrl: string;
+  isSpa: boolean;
+  buttonHints: ProbeButtonHint[];
+  checkoutFlow?: CheckoutFlow;
+  queueSystem: QueueSystem;
+  antiBot: AntiBotStack;
+  inventoryEndpoint?: string;
+  apiRequests: CapturedRequest[];
+  apiEndpoints?: string[];
 }
 
 export interface WorkerStatus {

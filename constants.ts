@@ -91,6 +91,14 @@ export const STATE_COLORS: Record<string, string> = {
   ERROR: "#ff4444",
 };
 
+export const PROBE_RUN_OFFSET_MS = 15 * 60 * 1000;
+export const PROBE_TIMEOUT_MS = 90_000;
+export const KATANA_BIN_NAME = "katana";
+export const KATANA_CRAWL_DEPTH = 3;
+export const PROBE_PROXY_COOLDOWN_MS = 300_000;
+export const PROBE_INTEL_PATH = "./sessions/probe-intel.json";
+export const INVENTORY_POLL_INTERVAL_MS = 200;
+
 export const STEALTH_SCRIPT = `
   Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
 

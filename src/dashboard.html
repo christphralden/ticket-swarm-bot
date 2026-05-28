@@ -105,6 +105,24 @@
     .hdr-sep  { color: var(--border-hi); }
     .hdr-sub  { color: var(--text-muted); font-size: 10px; letter-spacing: 0.18em; }
 
+    /* ── Nav tabs ── */
+    .nav-tabs { display: flex; align-items: stretch; gap: 0; margin-left: 16px; }
+    .nav-tab {
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      height: var(--header-h);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.1s, border-color 0.1s;
+      cursor: pointer;
+    }
+    .nav-tab:hover { color: var(--text-hi); }
+    .nav-tab.active { color: var(--green); border-bottom-color: var(--green); }
+
     /* WS indicator */
     .ws-ind {
       display: flex;
@@ -181,6 +199,19 @@
     .btn-danger   { border-color: rgba(255,68,68,0.25); color: #884444; }
     .btn-danger:hover { background: rgba(255,68,68,0.08); border-color: rgba(255,68,68,0.6); color: var(--red); }
     .btn-sm       { font-size: 10px; padding: 2px 8px; }
+    .btn-probe    { border-color: rgba(0,212,255,0.25); color: #3a8899; }
+    .btn-probe:hover { background: rgba(0,212,255,0.08); border-color: rgba(0,212,255,0.6); color: var(--cyan); }
+    .btn-probe.running { color: var(--cyan); border-color: rgba(0,212,255,0.6); animation: probePulse 0.9s ease-in-out infinite; }
+    @keyframes probePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .probe-status {
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      flex-shrink: 0;
+    }
+    .probe-status.ok   { color: var(--cyan); }
+    .probe-status.err  { color: var(--red); }
 
     /* ── Inputs ── */
     input {
@@ -378,8 +409,10 @@
   <header class="hdr">
     <div class="hdr-left">
       <span class="logo">TICKET BOT</span>
-      <span class="hdr-sep">//</span>
-      <span class="hdr-sub">CONTROL PANEL</span>
+      <nav class="nav-tabs">
+        <a class="nav-tab active" href="/">DASHBOARD</a>
+        <a class="nav-tab" href="/probe">PROBE</a>
+      </nav>
     </div>
     <span id="ws-ind" class="ws-ind disconnected">
       <span class="ws-dot"></span>
@@ -705,6 +738,7 @@
         if (!r.ok) throw new Error('HTTP ' + r.status);
       } catch(e) { alert('Save failed: ' + e); }
     }
+
 
     /* ── Boot ── */
     connect();

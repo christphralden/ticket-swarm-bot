@@ -8,15 +8,23 @@ import type { Config, SpawnOptions, WorkerCommand, ControllerMessage } from "./t
 import type { Controller } from "./controller";
 import type { WorkerPool } from "./worker-pool";
 import type { Scheduler } from "./scheduler";
+import type { ProbeWorker } from "./probe-worker";
 
-export function startDashboard(controller: Controller, pool: WorkerPool, scheduler: Scheduler): http.Server {
+export function startDashboard(controller: Controller, pool: WorkerPool, scheduler: Scheduler, probeWorker?: ProbeWorker): http.Server {
   const template = buildTemplate();
+  const probePage = fs.readFileSync(path.resolve(__dirname, "probe.html"), "utf-8");
 
   const server = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/") {
       const page = renderInitialPage(template, controller.getStatuses());
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(page);
+      return;
+    }
+
+    if (req.method === "GET" && req.url === "/probe") {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(probePage);
       return;
     }
 
@@ -94,6 +102,32 @@ export function startDashboard(controller: Controller, pool: WorkerPool, schedul
         const result = await pool.spawn(opts);
         respond(res, 200, result);
       });
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/probe") {
+      if (!probeWorker) { respond(res, 503, { error: "probe not available" }); return; }
+      const { bus } = getCtx();
+      probeWorker.runProbe().then((intel) => {
+        bus.emit("system:log", { scope: "probe", message: `probe complete via dashboard trigger` });
+      }).catch(() => {});
+      respond(res, 202, { ok: true, message: "probe started" });
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/probe/stop") {
+      if (!probeWorker) { respond(res, 503, { error: "probe not available" }); return; }
+      probeWorker.abort();
+      respond(res, 200, { ok: true });
+      return;
+    }
+
+    if (req.method === "GET" && req.url === "/probe/intel") {
+      if (!probeWorker) { respond(res, 404, { error: "no probe worker" }); return; }
+      const intel = probeWorker.loadPersistedIntel();
+      if (!intel) { respond(res, 404, { error: "no probe intel on disk" }); return; }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(intel, null, 2));
       return;
     }
 
