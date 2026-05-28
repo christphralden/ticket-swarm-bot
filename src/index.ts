@@ -36,7 +36,7 @@ async function main() {
     startDashboard(controller, pool);
 
     controller.setOnCheckout((id) => {
-      console.log(`\n[main] Worker ${id} is in CHECKOUT. Handle it manually in the browser.\n`);
+      bus.emit("system:log", { scope: "main", message: `worker ${id} is in CHECKOUT — take over manually in the browser` });
     });
 
     process.on("SIGINT", async () => {
@@ -46,8 +46,6 @@ async function main() {
       controller.close();
       process.exit(0);
     });
-
-    await pool.spawn({ count: config.workerCount });
 
     await waitUntil(
       () => new Date(config.saleOpenTime),

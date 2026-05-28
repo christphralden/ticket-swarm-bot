@@ -1,6 +1,12 @@
 import path from "path";
 import fs from "fs";
-import { chromium, type Browser, type BrowserContext, type Page, type Frame } from "playwright";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type Frame,
+} from "playwright";
 import { detectState, findPrimaryButton } from "./detector";
 import { getCtx } from "./context";
 import {
@@ -27,7 +33,7 @@ export class Worker {
     private credential: WorkerCredential,
     private targetUrl: string,
     private userAgent: string,
-    private onCrash: () => void
+    private onCrash: () => void,
   ) {}
 
   isLaunched(): boolean {
@@ -84,21 +90,26 @@ export class Worker {
     this.page = await this.context.newPage();
 
     const { bus } = getCtx();
-    this.unsubscribeCmd = bus.on(`cmd:${this.id}`, (msg) => this.handleCommand(msg));
+    this.unsubscribeCmd = bus.on(`cmd:${this.id}`, (msg) =>
+      this.handleCommand(msg),
+    );
 
     this.setState(WORKER_STATES.IDLE);
-    this.log("launched");
+    this.log("launch");
   }
 
   async preNavigate(): Promise<void> {
     if (!this.page) return;
     this.setState(WORKER_STATES.NAVIGATING);
     try {
-      await this.page.goto(this.targetUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
+      await this.page.goto(this.targetUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 15_000,
+      });
       this.setState(WORKER_STATES.PRE_QUEUE);
-      this.log("pre-navigated to ticket page");
+      this.log(`pre navigating to ${this.targetUrl}`);
     } catch (err) {
-      this.log(`pre-navigate failed: ${err}`);
+      this.log(`pre navigate failed, fuckkkkkkk: ${err}`);
       this.setState(WORKER_STATES.ERROR);
     }
   }
@@ -116,13 +127,16 @@ export class Worker {
       });
     }
 
-    this.log("starting");
+    this.log("starting loop");
     await this.pollLoop();
   }
 
   stop(): void {
     this.running = false;
-    if (this.state !== WORKER_STATES.CHECKOUT && this.state !== WORKER_STATES.DONE) {
+    if (
+      this.state !== WORKER_STATES.CHECKOUT &&
+      this.state !== WORKER_STATES.DONE
+    ) {
       this.setState(WORKER_STATES.IDLE);
     }
     this.log("stopped");
@@ -145,7 +159,8 @@ export class Worker {
         await this.clickPrimary();
         break;
       case WORKER_COMMANDS.NAVIGATE:
-        if (msg.url) await this.page.goto(msg.url, { waitUntil: "domcontentloaded" });
+        if (msg.url)
+          await this.page.goto(msg.url, { waitUntil: "domcontentloaded" });
         break;
       case WORKER_COMMANDS.FOCUS:
         await this.page.bringToFront();
@@ -159,10 +174,14 @@ export class Worker {
     try {
       if (this.context) {
         const sessionPath = path.resolve(SESSION_DIR, `worker-${this.id}`);
-        await this.context.storageState({ path: path.join(sessionPath, "state.json") });
+        await this.context.storageState({
+          path: path.join(sessionPath, "state.json"),
+        });
       }
     } catch {}
-    try { await this.browser?.close(); } catch {}
+    try {
+      await this.browser?.close();
+    } catch {}
     this.browser = null;
     this.context = null;
     this.page = null;
@@ -176,11 +195,15 @@ export class Worker {
     if (newState !== prevState) this.setState(newState);
 
     if (newState === WORKER_STATES.ACTIVE_SALE) {
-      if (newState !== prevState) await this.page.bringToFront().catch(() => {});
+      if (newState !== prevState)
+        await this.page.bringToFront().catch(() => {});
       await this.clickPrimary();
-    } else if (newState === WORKER_STATES.CHECKOUT || newState === WORKER_STATES.DONE) {
+    } else if (
+      newState === WORKER_STATES.CHECKOUT ||
+      newState === WORKER_STATES.DONE
+    ) {
       await this.page.bringToFront().catch(() => {});
-      this.log("reached checkout");
+      this.log("CHECKOUT BABY CHECKOUT BABY CHECKOUT BABY");
       this.stop();
     } else if (newState === WORKER_STATES.SOLD_OUT) {
       const { config } = getCtx();
@@ -191,8 +214,10 @@ export class Worker {
   private async pollLoop(): Promise<void> {
     const { config } = getCtx();
     const staggerMs = Math.min(
-      Math.floor(config.refreshIntervalMs / Math.max(config.workerCount || 50, 1)),
-      20
+      Math.floor(
+        config.refreshIntervalMs / Math.max(config.workerCount || 50, 1),
+      ),
+      20,
     );
     await this.sleep(this.id * staggerMs);
 
@@ -204,24 +229,31 @@ export class Worker {
         const newState = await detectState(this.page);
         if (newState !== prevState) this.setState(newState);
 
-        if (newState === WORKER_STATES.WAITING_ROOM || newState === WORKER_STATES.IN_QUEUE) {
+        if (
+          newState === WORKER_STATES.WAITING_ROOM ||
+          newState === WORKER_STATES.IN_QUEUE
+        ) {
           if (config.stopOnQueueDetected) {
-            this.log("in queue — holding");
+            this.log("QUEUED");
             await this.waitForQueueExit();
             continue;
           }
         }
 
         if (newState === WORKER_STATES.ACTIVE_SALE) {
-          if (newState !== prevState) await this.page.bringToFront().catch(() => {});
+          if (newState !== prevState)
+            await this.page.bringToFront().catch(() => {});
           await this.clickPrimary();
           await this.sleep(300);
           continue;
         }
 
-        if (newState === WORKER_STATES.CHECKOUT || newState === WORKER_STATES.DONE) {
+        if (
+          newState === WORKER_STATES.CHECKOUT ||
+          newState === WORKER_STATES.DONE
+        ) {
           await this.page.bringToFront().catch(() => {});
-          this.log("reached checkout — stopping");
+          this.log("WERE IN FUCKERS, stop the loop");
           this.stop();
           break;
         }
@@ -233,7 +265,10 @@ export class Worker {
 
         await this.sleep(config.refreshIntervalMs);
 
-        if (newState !== WORKER_STATES.WAITING_ROOM && newState !== WORKER_STATES.IN_QUEUE) {
+        if (
+          newState !== WORKER_STATES.WAITING_ROOM &&
+          newState !== WORKER_STATES.IN_QUEUE
+        ) {
           await this.refresh();
         }
       } catch (err) {
@@ -250,7 +285,7 @@ export class Worker {
         }
 
         this.consecutiveErrors++;
-        this.log(`poll error (${this.consecutiveErrors}): ${err}`);
+        this.log(`FUCK #${this.consecutiveErrors}: ${err}`);
         if (this.consecutiveErrors >= 5) {
           this.setState(WORKER_STATES.ERROR);
           this.consecutiveErrors = 0;
@@ -265,7 +300,10 @@ export class Worker {
       await this.sleep(1_500);
       if (!this.page) break;
       const state = await detectState(this.page).catch(() => this.state);
-      if (state !== WORKER_STATES.WAITING_ROOM && state !== WORKER_STATES.IN_QUEUE) {
+      if (
+        state !== WORKER_STATES.WAITING_ROOM &&
+        state !== WORKER_STATES.IN_QUEUE
+      ) {
         this.setState(state);
         return;
       }
@@ -290,9 +328,9 @@ export class Worker {
     }
     try {
       await btn.click({ timeout: 2_000 });
-      this.log("clicked primary button");
+      this.log("CLICK");
     } catch (err) {
-      this.log(`click failed: ${err}`);
+      this.log(`i cant fucking click: ${err}`);
     }
   }
 
@@ -316,7 +354,6 @@ export class Worker {
   }
 
   private log(message: string): void {
-    console.log(`[worker-${this.id}] ${message}`);
     try {
       const { bus } = getCtx();
       bus.emit("worker:log", { id: this.id, message });

@@ -1,5 +1,6 @@
 export const DASHBOARD_PORT = 3000;
 export const WS_PORT = 3001;
+export const LOG_BUFFER_SIZE = 500;
 
 export const PRE_NAVIGATE_MS = 30_000;
 export const PRECISION_POLL_MS = 100;

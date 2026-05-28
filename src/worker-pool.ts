@@ -23,7 +23,9 @@ export class WorkerPool {
     this.phase = phase;
   }
 
-  async spawn(opts: SpawnOptions): Promise<{ spawned: number; errors: string[] }> {
+  async spawn(
+    opts: SpawnOptions,
+  ): Promise<{ spawned: number; errors: string[] }> {
     const errors: string[] = [];
     let spawned = 0;
 
@@ -52,8 +54,36 @@ export class WorkerPool {
     this.workers.delete(id);
     const { bus } = getCtx();
     bus.emit("worker:removed", { id });
-    console.log(`[pool] worker ${id} destroyed`);
+    bus.emit("system:log", {
+      scope: "pool",
+      message: `worker ${id} has been killed`,
+    });
     return { ok: true };
+  }
+
+  async spawnAll(): Promise<{ spawned: number; errors: string[] }> {
+    const { config, bus } = getCtx();
+    const errors: string[] = [];
+    let spawned = 0;
+    bus.emit("system:log", {
+      scope: "pool",
+      message: `spawning all ${config.workerCount} workers`,
+    });
+    for (let id = 0; id < config.workerCount; id++) {
+      if (this.workers.has(id)) continue;
+      try {
+        await this.spawnOne(id, undefined);
+        spawned++;
+      } catch (err) {
+        errors.push(String(err));
+      }
+    }
+    if (this.nextId < config.workerCount) this.nextId = config.workerCount;
+    bus.emit("system:log", {
+      scope: "pool",
+      message: `${spawned} spawned, ${errors.length} failed`,
+    });
+    return { spawned, errors };
   }
 
   getAll(): Worker[] {
@@ -82,18 +112,28 @@ export class WorkerPool {
   }
 
   private async recover(id: number): Promise<void> {
+    const { bus } = getCtx();
     const entry = this.workers.get(id);
     if (!entry || entry.retries >= 3) {
-      console.log(`[pool] worker ${id} exceeded max retries — giving up`);
+      bus.emit("system:log", {
+        scope: "pool",
+        message: `worker ${id} gave up`,
+      });
       return;
     }
     entry.retries++;
-    console.log(`[pool] recovering worker ${id} (attempt ${entry.retries})`);
+    bus.emit("system:log", {
+      scope: "pool",
+      message: `trying to resurrect worker ${id} (attempt ${entry.retries})`,
+    });
     await new Promise((r) => setTimeout(r, 1_000));
     try {
       await this.spawnOne(id);
     } catch (err) {
-      console.log(`[pool] recovery failed for worker ${id}: ${err}`);
+      bus.emit("system:log", {
+        scope: "pool",
+        message: `failed to recover worker ${id}: ${err}`,
+      });
     }
   }
 }

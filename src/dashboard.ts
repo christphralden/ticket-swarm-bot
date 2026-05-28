@@ -65,6 +65,15 @@ export function startDashboard(controller: Controller, pool: WorkerPool): http.S
       return;
     }
 
+    if (req.method === "POST" && req.url === "/spawn-all") {
+      pool.spawnAll().then((result) => {
+        respond(res, 200, result);
+      }).catch((err) => {
+        respond(res, 500, { error: String(err) });
+      });
+      return;
+    }
+
     if (req.method === "POST" && req.url === "/spawn") {
       readBody(req, async (err, body) => {
         if (err) { respond(res, 400, { error: "Failed to read body" }); return; }

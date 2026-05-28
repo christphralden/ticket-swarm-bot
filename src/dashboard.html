@@ -1,4303 +1,701 @@
 <!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Ticket Bot</title>
-    <script>
-      (function (e, t) {
-        if (typeof define === "function" && define.amd) {
-          define([], t);
-        } else if (typeof module === "object" && module.exports) {
-          module.exports = t();
-        } else {
-          e.htmx = e.htmx || t();
-        }
-      })(typeof self !== "undefined" ? self : this, function () {
-        return (function () {
-          "use strict";
-          var Q = {
-            onLoad: F,
-            process: zt,
-            on: de,
-            off: ge,
-            trigger: ce,
-            ajax: Nr,
-            find: C,
-            findAll: f,
-            closest: v,
-            values: function (e, t) {
-              var r = dr(e, t || "post");
-              return r.values;
-            },
-            remove: _,
-            addClass: z,
-            removeClass: n,
-            toggleClass: $,
-            takeClass: W,
-            defineExtension: Ur,
-            removeExtension: Br,
-            logAll: V,
-            logNone: j,
-            logger: null,
-            config: {
-              historyEnabled: true,
-              historyCacheSize: 10,
-              refreshOnHistoryMiss: false,
-              defaultSwapStyle: "innerHTML",
-              defaultSwapDelay: 0,
-              defaultSettleDelay: 20,
-              includeIndicatorStyles: true,
-              indicatorClass: "htmx-indicator",
-              requestClass: "htmx-request",
-              addedClass: "htmx-added",
-              settlingClass: "htmx-settling",
-              swappingClass: "htmx-swapping",
-              allowEval: true,
-              allowScriptTags: true,
-              inlineScriptNonce: "",
-              attributesToSettle: ["class", "style", "width", "height"],
-              withCredentials: false,
-              timeout: 0,
-              wsReconnectDelay: "full-jitter",
-              wsBinaryType: "blob",
-              disableSelector: "[hx-disable], [data-hx-disable]",
-              useTemplateFragments: false,
-              scrollBehavior: "smooth",
-              defaultFocusScroll: false,
-              getCacheBusterParam: false,
-              globalViewTransitions: false,
-              methodsThatUseUrlParams: ["get"],
-              selfRequestsOnly: false,
-              ignoreTitle: false,
-              scrollIntoViewOnBoost: true,
-              triggerSpecsCache: null,
-            },
-            parseInterval: d,
-            _: t,
-            createEventSource: function (e) {
-              return new EventSource(e, { withCredentials: true });
-            },
-            createWebSocket: function (e) {
-              var t = new WebSocket(e, []);
-              t.binaryType = Q.config.wsBinaryType;
-              return t;
-            },
-            version: "1.9.12",
-          };
-          var r = {
-            addTriggerHandler: Lt,
-            bodyContains: se,
-            canAccessLocalStorage: U,
-            findThisElement: xe,
-            filterValues: yr,
-            hasAttribute: o,
-            getAttributeValue: te,
-            getClosestAttributeValue: ne,
-            getClosestMatch: c,
-            getExpressionVars: Hr,
-            getHeaders: xr,
-            getInputValues: dr,
-            getInternalData: ae,
-            getSwapSpecification: wr,
-            getTriggerSpecs: it,
-            getTarget: ye,
-            makeFragment: l,
-            mergeObjects: le,
-            makeSettleInfo: T,
-            oobSwap: Ee,
-            querySelectorExt: ue,
-            selectAndSwap: je,
-            settleImmediately: nr,
-            shouldCancel: ut,
-            triggerEvent: ce,
-            triggerErrorEvent: fe,
-            withExtensions: R,
-          };
-          var w = ["get", "post", "put", "delete", "patch"];
-          var i = w
-            .map(function (e) {
-              return "[hx-" + e + "], [data-hx-" + e + "]";
-            })
-            .join(", ");
-          var S = e("head"),
-            q = e("title"),
-            H = e("svg", true);
-          function e(e, t) {
-            return new RegExp(
-              "<" + e + "(\\s[^>]*>|>)([\\s\\S]*?)<\\/" + e + ">",
-              !!t ? "gim" : "im",
-            );
-          }
-          function d(e) {
-            if (e == undefined) {
-              return undefined;
-            }
-            let t = NaN;
-            if (e.slice(-2) == "ms") {
-              t = parseFloat(e.slice(0, -2));
-            } else if (e.slice(-1) == "s") {
-              t = parseFloat(e.slice(0, -1)) * 1e3;
-            } else if (e.slice(-1) == "m") {
-              t = parseFloat(e.slice(0, -1)) * 1e3 * 60;
-            } else {
-              t = parseFloat(e);
-            }
-            return isNaN(t) ? undefined : t;
-          }
-          function ee(e, t) {
-            return e.getAttribute && e.getAttribute(t);
-          }
-          function o(e, t) {
-            return (
-              e.hasAttribute &&
-              (e.hasAttribute(t) || e.hasAttribute("data-" + t))
-            );
-          }
-          function te(e, t) {
-            return ee(e, t) || ee(e, "data-" + t);
-          }
-          function u(e) {
-            return e.parentElement;
-          }
-          function re() {
-            return document;
-          }
-          function c(e, t) {
-            while (e && !t(e)) {
-              e = u(e);
-            }
-            return e ? e : null;
-          }
-          function L(e, t, r) {
-            var n = te(t, r);
-            var i = te(t, "hx-disinherit");
-            if (e !== t && i && (i === "*" || i.split(" ").indexOf(r) >= 0)) {
-              return "unset";
-            } else {
-              return n;
-            }
-          }
-          function ne(t, r) {
-            var n = null;
-            c(t, function (e) {
-              return (n = L(t, e, r));
-            });
-            if (n !== "unset") {
-              return n;
-            }
-          }
-          function h(e, t) {
-            var r =
-              e.matches ||
-              e.matchesSelector ||
-              e.msMatchesSelector ||
-              e.mozMatchesSelector ||
-              e.webkitMatchesSelector ||
-              e.oMatchesSelector;
-            return r && r.call(e, t);
-          }
-          function A(e) {
-            var t = /<([a-z][^\/\0>\x20\t\r\n\f]*)/i;
-            var r = t.exec(e);
-            if (r) {
-              return r[1].toLowerCase();
-            } else {
-              return "";
-            }
-          }
-          function s(e, t) {
-            var r = new DOMParser();
-            var n = r.parseFromString(e, "text/html");
-            var i = n.body;
-            while (t > 0) {
-              t--;
-              i = i.firstChild;
-            }
-            if (i == null) {
-              i = re().createDocumentFragment();
-            }
-            return i;
-          }
-          function N(e) {
-            return /<body/.test(e);
-          }
-          function l(e) {
-            var t = !N(e);
-            var r = A(e);
-            var n = e;
-            if (r === "head") {
-              n = n.replace(S, "");
-            }
-            if (Q.config.useTemplateFragments && t) {
-              var i = s("<body><template>" + n + "</template></body>", 0);
-              var a = i.querySelector("template").content;
-              if (Q.config.allowScriptTags) {
-                oe(a.querySelectorAll("script"), function (e) {
-                  if (Q.config.inlineScriptNonce) {
-                    e.nonce = Q.config.inlineScriptNonce;
-                  }
-                  e.htmxExecuted =
-                    navigator.userAgent.indexOf("Firefox") === -1;
-                });
-              } else {
-                oe(a.querySelectorAll("script"), function (e) {
-                  _(e);
-                });
-              }
-              return a;
-            }
-            switch (r) {
-              case "thead":
-              case "tbody":
-              case "tfoot":
-              case "colgroup":
-              case "caption":
-                return s("<table>" + n + "</table>", 1);
-              case "col":
-                return s("<table><colgroup>" + n + "</colgroup></table>", 2);
-              case "tr":
-                return s("<table><tbody>" + n + "</tbody></table>", 2);
-              case "td":
-              case "th":
-                return s("<table><tbody><tr>" + n + "</tr></tbody></table>", 3);
-              case "script":
-              case "style":
-                return s("<div>" + n + "</div>", 1);
-              default:
-                return s(n, 0);
-            }
-          }
-          function ie(e) {
-            if (e) {
-              e();
-            }
-          }
-          function I(e, t) {
-            return Object.prototype.toString.call(e) === "[object " + t + "]";
-          }
-          function k(e) {
-            return I(e, "Function");
-          }
-          function P(e) {
-            return I(e, "Object");
-          }
-          function ae(e) {
-            var t = "htmx-internal-data";
-            var r = e[t];
-            if (!r) {
-              r = e[t] = {};
-            }
-            return r;
-          }
-          function M(e) {
-            var t = [];
-            if (e) {
-              for (var r = 0; r < e.length; r++) {
-                t.push(e[r]);
-              }
-            }
-            return t;
-          }
-          function oe(e, t) {
-            if (e) {
-              for (var r = 0; r < e.length; r++) {
-                t(e[r]);
-              }
-            }
-          }
-          function X(e) {
-            var t = e.getBoundingClientRect();
-            var r = t.top;
-            var n = t.bottom;
-            return r < window.innerHeight && n >= 0;
-          }
-          function se(e) {
-            if (e.getRootNode && e.getRootNode() instanceof window.ShadowRoot) {
-              return re().body.contains(e.getRootNode().host);
-            } else {
-              return re().body.contains(e);
-            }
-          }
-          function D(e) {
-            return e.trim().split(/\s+/);
-          }
-          function le(e, t) {
-            for (var r in t) {
-              if (t.hasOwnProperty(r)) {
-                e[r] = t[r];
-              }
-            }
-            return e;
-          }
-          function E(e) {
-            try {
-              return JSON.parse(e);
-            } catch (e) {
-              b(e);
-              return null;
-            }
-          }
-          function U() {
-            var e = "htmx:localStorageTest";
-            try {
-              localStorage.setItem(e, e);
-              localStorage.removeItem(e);
-              return true;
-            } catch (e) {
-              return false;
-            }
-          }
-          function B(t) {
-            try {
-              var e = new URL(t);
-              if (e) {
-                t = e.pathname + e.search;
-              }
-              if (!/^\/$/.test(t)) {
-                t = t.replace(/\/+$/, "");
-              }
-              return t;
-            } catch (e) {
-              return t;
-            }
-          }
-          function t(e) {
-            return Tr(re().body, function () {
-              return eval(e);
-            });
-          }
-          function F(t) {
-            var e = Q.on("htmx:load", function (e) {
-              t(e.detail.elt);
-            });
-            return e;
-          }
-          function V() {
-            Q.logger = function (e, t, r) {
-              if (console) {
-                console.log(t, e, r);
-              }
-            };
-          }
-          function j() {
-            Q.logger = null;
-          }
-          function C(e, t) {
-            if (t) {
-              return e.querySelector(t);
-            } else {
-              return C(re(), e);
-            }
-          }
-          function f(e, t) {
-            if (t) {
-              return e.querySelectorAll(t);
-            } else {
-              return f(re(), e);
-            }
-          }
-          function _(e, t) {
-            e = p(e);
-            if (t) {
-              setTimeout(function () {
-                _(e);
-                e = null;
-              }, t);
-            } else {
-              e.parentElement.removeChild(e);
-            }
-          }
-          function z(e, t, r) {
-            e = p(e);
-            if (r) {
-              setTimeout(function () {
-                z(e, t);
-                e = null;
-              }, r);
-            } else {
-              e.classList && e.classList.add(t);
-            }
-          }
-          function n(e, t, r) {
-            e = p(e);
-            if (r) {
-              setTimeout(function () {
-                n(e, t);
-                e = null;
-              }, r);
-            } else {
-              if (e.classList) {
-                e.classList.remove(t);
-                if (e.classList.length === 0) {
-                  e.removeAttribute("class");
-                }
-              }
-            }
-          }
-          function $(e, t) {
-            e = p(e);
-            e.classList.toggle(t);
-          }
-          function W(e, t) {
-            e = p(e);
-            oe(e.parentElement.children, function (e) {
-              n(e, t);
-            });
-            z(e, t);
-          }
-          function v(e, t) {
-            e = p(e);
-            if (e.closest) {
-              return e.closest(t);
-            } else {
-              do {
-                if (e == null || h(e, t)) {
-                  return e;
-                }
-              } while ((e = e && u(e)));
-              return null;
-            }
-          }
-          function g(e, t) {
-            return e.substring(0, t.length) === t;
-          }
-          function G(e, t) {
-            return e.substring(e.length - t.length) === t;
-          }
-          function J(e) {
-            var t = e.trim();
-            if (g(t, "<") && G(t, "/>")) {
-              return t.substring(1, t.length - 2);
-            } else {
-              return t;
-            }
-          }
-          function Z(e, t) {
-            if (t.indexOf("closest ") === 0) {
-              return [v(e, J(t.substr(8)))];
-            } else if (t.indexOf("find ") === 0) {
-              return [C(e, J(t.substr(5)))];
-            } else if (t === "next") {
-              return [e.nextElementSibling];
-            } else if (t.indexOf("next ") === 0) {
-              return [K(e, J(t.substr(5)))];
-            } else if (t === "previous") {
-              return [e.previousElementSibling];
-            } else if (t.indexOf("previous ") === 0) {
-              return [Y(e, J(t.substr(9)))];
-            } else if (t === "document") {
-              return [document];
-            } else if (t === "window") {
-              return [window];
-            } else if (t === "body") {
-              return [document.body];
-            } else {
-              return re().querySelectorAll(J(t));
-            }
-          }
-          var K = function (e, t) {
-            var r = re().querySelectorAll(t);
-            for (var n = 0; n < r.length; n++) {
-              var i = r[n];
-              if (
-                i.compareDocumentPosition(e) ===
-                Node.DOCUMENT_POSITION_PRECEDING
-              ) {
-                return i;
-              }
-            }
-          };
-          var Y = function (e, t) {
-            var r = re().querySelectorAll(t);
-            for (var n = r.length - 1; n >= 0; n--) {
-              var i = r[n];
-              if (
-                i.compareDocumentPosition(e) ===
-                Node.DOCUMENT_POSITION_FOLLOWING
-              ) {
-                return i;
-              }
-            }
-          };
-          function ue(e, t) {
-            if (t) {
-              return Z(e, t)[0];
-            } else {
-              return Z(re().body, e)[0];
-            }
-          }
-          function p(e) {
-            if (I(e, "String")) {
-              return C(e);
-            } else {
-              return e;
-            }
-          }
-          function ve(e, t, r) {
-            if (k(t)) {
-              return { target: re().body, event: e, listener: t };
-            } else {
-              return { target: p(e), event: t, listener: r };
-            }
-          }
-          function de(t, r, n) {
-            jr(function () {
-              var e = ve(t, r, n);
-              e.target.addEventListener(e.event, e.listener);
-            });
-            var e = k(r);
-            return e ? r : n;
-          }
-          function ge(t, r, n) {
-            jr(function () {
-              var e = ve(t, r, n);
-              e.target.removeEventListener(e.event, e.listener);
-            });
-            return k(r) ? r : n;
-          }
-          var pe = re().createElement("output");
-          function me(e, t) {
-            var r = ne(e, t);
-            if (r) {
-              if (r === "this") {
-                return [xe(e, t)];
-              } else {
-                var n = Z(e, r);
-                if (n.length === 0) {
-                  b(
-                    'The selector "' +
-                      r +
-                      '" on ' +
-                      t +
-                      " returned no matches!",
-                  );
-                  return [pe];
-                } else {
-                  return n;
-                }
-              }
-            }
-          }
-          function xe(e, t) {
-            return c(e, function (e) {
-              return te(e, t) != null;
-            });
-          }
-          function ye(e) {
-            var t = ne(e, "hx-target");
-            if (t) {
-              if (t === "this") {
-                return xe(e, "hx-target");
-              } else {
-                return ue(e, t);
-              }
-            } else {
-              var r = ae(e);
-              if (r.boosted) {
-                return re().body;
-              } else {
-                return e;
-              }
-            }
-          }
-          function be(e) {
-            var t = Q.config.attributesToSettle;
-            for (var r = 0; r < t.length; r++) {
-              if (e === t[r]) {
-                return true;
-              }
-            }
-            return false;
-          }
-          function we(t, r) {
-            oe(t.attributes, function (e) {
-              if (!r.hasAttribute(e.name) && be(e.name)) {
-                t.removeAttribute(e.name);
-              }
-            });
-            oe(r.attributes, function (e) {
-              if (be(e.name)) {
-                t.setAttribute(e.name, e.value);
-              }
-            });
-          }
-          function Se(e, t) {
-            var r = Fr(t);
-            for (var n = 0; n < r.length; n++) {
-              var i = r[n];
-              try {
-                if (i.isInlineSwap(e)) {
-                  return true;
-                }
-              } catch (e) {
-                b(e);
-              }
-            }
-            return e === "outerHTML";
-          }
-          function Ee(e, i, a) {
-            var t = "#" + ee(i, "id");
-            var o = "outerHTML";
-            if (e === "true") {
-            } else if (e.indexOf(":") > 0) {
-              o = e.substr(0, e.indexOf(":"));
-              t = e.substr(e.indexOf(":") + 1, e.length);
-            } else {
-              o = e;
-            }
-            var r = re().querySelectorAll(t);
-            if (r) {
-              oe(r, function (e) {
-                var t;
-                var r = i.cloneNode(true);
-                t = re().createDocumentFragment();
-                t.appendChild(r);
-                if (!Se(o, e)) {
-                  t = r;
-                }
-                var n = { shouldSwap: true, target: e, fragment: t };
-                if (!ce(e, "htmx:oobBeforeSwap", n)) return;
-                e = n.target;
-                if (n["shouldSwap"]) {
-                  Fe(o, e, e, t, a);
-                }
-                oe(a.elts, function (e) {
-                  ce(e, "htmx:oobAfterSwap", n);
-                });
-              });
-              i.parentNode.removeChild(i);
-            } else {
-              i.parentNode.removeChild(i);
-              fe(re().body, "htmx:oobErrorNoTarget", { content: i });
-            }
-            return e;
-          }
-          function Ce(e, t, r) {
-            var n = ne(e, "hx-select-oob");
-            if (n) {
-              var i = n.split(",");
-              for (var a = 0; a < i.length; a++) {
-                var o = i[a].split(":", 2);
-                var s = o[0].trim();
-                if (s.indexOf("#") === 0) {
-                  s = s.substring(1);
-                }
-                var l = o[1] || "true";
-                var u = t.querySelector("#" + s);
-                if (u) {
-                  Ee(l, u, r);
-                }
-              }
-            }
-            oe(f(t, "[hx-swap-oob], [data-hx-swap-oob]"), function (e) {
-              var t = te(e, "hx-swap-oob");
-              if (t != null) {
-                Ee(t, e, r);
-              }
-            });
-          }
-          function Re(e) {
-            oe(f(e, "[hx-preserve], [data-hx-preserve]"), function (e) {
-              var t = te(e, "id");
-              var r = re().getElementById(t);
-              if (r != null) {
-                e.parentNode.replaceChild(r, e);
-              }
-            });
-          }
-          function Te(o, e, s) {
-            oe(e.querySelectorAll("[id]"), function (e) {
-              var t = ee(e, "id");
-              if (t && t.length > 0) {
-                var r = t.replace("'", "\\'");
-                var n = e.tagName.replace(":", "\\:");
-                var i = o.querySelector(n + "[id='" + r + "']");
-                if (i && i !== o) {
-                  var a = e.cloneNode();
-                  we(e, i);
-                  s.tasks.push(function () {
-                    we(e, a);
-                  });
-                }
-              }
-            });
-          }
-          function Oe(e) {
-            return function () {
-              n(e, Q.config.addedClass);
-              zt(e);
-              Nt(e);
-              qe(e);
-              ce(e, "htmx:load");
-            };
-          }
-          function qe(e) {
-            var t = "[autofocus]";
-            var r = h(e, t) ? e : e.querySelector(t);
-            if (r != null) {
-              r.focus();
-            }
-          }
-          function a(e, t, r, n) {
-            Te(e, r, n);
-            while (r.childNodes.length > 0) {
-              var i = r.firstChild;
-              z(i, Q.config.addedClass);
-              e.insertBefore(i, t);
-              if (
-                i.nodeType !== Node.TEXT_NODE &&
-                i.nodeType !== Node.COMMENT_NODE
-              ) {
-                n.tasks.push(Oe(i));
-              }
-            }
-          }
-          function He(e, t) {
-            var r = 0;
-            while (r < e.length) {
-              t = ((t << 5) - t + e.charCodeAt(r++)) | 0;
-            }
-            return t;
-          }
-          function Le(e) {
-            var t = 0;
-            if (e.attributes) {
-              for (var r = 0; r < e.attributes.length; r++) {
-                var n = e.attributes[r];
-                if (n.value) {
-                  t = He(n.name, t);
-                  t = He(n.value, t);
-                }
-              }
-            }
-            return t;
-          }
-          function Ae(e) {
-            var t = ae(e);
-            if (t.onHandlers) {
-              for (var r = 0; r < t.onHandlers.length; r++) {
-                const n = t.onHandlers[r];
-                e.removeEventListener(n.event, n.listener);
-              }
-              delete t.onHandlers;
-            }
-          }
-          function Ne(e) {
-            var t = ae(e);
-            if (t.timeout) {
-              clearTimeout(t.timeout);
-            }
-            if (t.webSocket) {
-              t.webSocket.close();
-            }
-            if (t.sseEventSource) {
-              t.sseEventSource.close();
-            }
-            if (t.listenerInfos) {
-              oe(t.listenerInfos, function (e) {
-                if (e.on) {
-                  e.on.removeEventListener(e.trigger, e.listener);
-                }
-              });
-            }
-            Ae(e);
-            oe(Object.keys(t), function (e) {
-              delete t[e];
-            });
-          }
-          function m(e) {
-            ce(e, "htmx:beforeCleanupElement");
-            Ne(e);
-            if (e.children) {
-              oe(e.children, function (e) {
-                m(e);
-              });
-            }
-          }
-          function Ie(t, e, r) {
-            if (t.tagName === "BODY") {
-              return Ue(t, e, r);
-            } else {
-              var n;
-              var i = t.previousSibling;
-              a(u(t), t, e, r);
-              if (i == null) {
-                n = u(t).firstChild;
-              } else {
-                n = i.nextSibling;
-              }
-              r.elts = r.elts.filter(function (e) {
-                return e != t;
-              });
-              while (n && n !== t) {
-                if (n.nodeType === Node.ELEMENT_NODE) {
-                  r.elts.push(n);
-                }
-                n = n.nextElementSibling;
-              }
-              m(t);
-              u(t).removeChild(t);
-            }
-          }
-          function ke(e, t, r) {
-            return a(e, e.firstChild, t, r);
-          }
-          function Pe(e, t, r) {
-            return a(u(e), e, t, r);
-          }
-          function Me(e, t, r) {
-            return a(e, null, t, r);
-          }
-          function Xe(e, t, r) {
-            return a(u(e), e.nextSibling, t, r);
-          }
-          function De(e, t, r) {
-            m(e);
-            return u(e).removeChild(e);
-          }
-          function Ue(e, t, r) {
-            var n = e.firstChild;
-            a(e, n, t, r);
-            if (n) {
-              while (n.nextSibling) {
-                m(n.nextSibling);
-                e.removeChild(n.nextSibling);
-              }
-              m(n);
-              e.removeChild(n);
-            }
-          }
-          function Be(e, t, r) {
-            var n = r || ne(e, "hx-select");
-            if (n) {
-              var i = re().createDocumentFragment();
-              oe(t.querySelectorAll(n), function (e) {
-                i.appendChild(e);
-              });
-              t = i;
-            }
-            return t;
-          }
-          function Fe(e, t, r, n, i) {
-            switch (e) {
-              case "none":
-                return;
-              case "outerHTML":
-                Ie(r, n, i);
-                return;
-              case "afterbegin":
-                ke(r, n, i);
-                return;
-              case "beforebegin":
-                Pe(r, n, i);
-                return;
-              case "beforeend":
-                Me(r, n, i);
-                return;
-              case "afterend":
-                Xe(r, n, i);
-                return;
-              case "delete":
-                De(r, n, i);
-                return;
-              default:
-                var a = Fr(t);
-                for (var o = 0; o < a.length; o++) {
-                  var s = a[o];
-                  try {
-                    var l = s.handleSwap(e, r, n, i);
-                    if (l) {
-                      if (typeof l.length !== "undefined") {
-                        for (var u = 0; u < l.length; u++) {
-                          var f = l[u];
-                          if (
-                            f.nodeType !== Node.TEXT_NODE &&
-                            f.nodeType !== Node.COMMENT_NODE
-                          ) {
-                            i.tasks.push(Oe(f));
-                          }
-                        }
-                      }
-                      return;
-                    }
-                  } catch (e) {
-                    b(e);
-                  }
-                }
-                if (e === "innerHTML") {
-                  Ue(r, n, i);
-                } else {
-                  Fe(Q.config.defaultSwapStyle, t, r, n, i);
-                }
-            }
-          }
-          function Ve(e) {
-            if (e.indexOf("<title") > -1) {
-              var t = e.replace(H, "");
-              var r = t.match(q);
-              if (r) {
-                return r[2];
-              }
-            }
-          }
-          function je(e, t, r, n, i, a) {
-            i.title = Ve(n);
-            var o = l(n);
-            if (o) {
-              Ce(r, o, i);
-              o = Be(r, o, a);
-              Re(o);
-              return Fe(e, r, t, o, i);
-            }
-          }
-          function _e(e, t, r) {
-            var n = e.getResponseHeader(t);
-            if (n.indexOf("{") === 0) {
-              var i = E(n);
-              for (var a in i) {
-                if (i.hasOwnProperty(a)) {
-                  var o = i[a];
-                  if (!P(o)) {
-                    o = { value: o };
-                  }
-                  ce(r, a, o);
-                }
-              }
-            } else {
-              var s = n.split(",");
-              for (var l = 0; l < s.length; l++) {
-                ce(r, s[l].trim(), []);
-              }
-            }
-          }
-          var ze = /\s/;
-          var x = /[\s,]/;
-          var $e = /[_$a-zA-Z]/;
-          var We = /[_$a-zA-Z0-9]/;
-          var Ge = ['"', "'", "/"];
-          var Je = /[^\s]/;
-          var Ze = /[{(]/;
-          var Ke = /[})]/;
-          function Ye(e) {
-            var t = [];
-            var r = 0;
-            while (r < e.length) {
-              if ($e.exec(e.charAt(r))) {
-                var n = r;
-                while (We.exec(e.charAt(r + 1))) {
-                  r++;
-                }
-                t.push(e.substr(n, r - n + 1));
-              } else if (Ge.indexOf(e.charAt(r)) !== -1) {
-                var i = e.charAt(r);
-                var n = r;
-                r++;
-                while (r < e.length && e.charAt(r) !== i) {
-                  if (e.charAt(r) === "\\") {
-                    r++;
-                  }
-                  r++;
-                }
-                t.push(e.substr(n, r - n + 1));
-              } else {
-                var a = e.charAt(r);
-                t.push(a);
-              }
-              r++;
-            }
-            return t;
-          }
-          function Qe(e, t, r) {
-            return (
-              $e.exec(e.charAt(0)) &&
-              e !== "true" &&
-              e !== "false" &&
-              e !== "this" &&
-              e !== r &&
-              t !== "."
-            );
-          }
-          function et(e, t, r) {
-            if (t[0] === "[") {
-              t.shift();
-              var n = 1;
-              var i = " return (function(" + r + "){ return (";
-              var a = null;
-              while (t.length > 0) {
-                var o = t[0];
-                if (o === "]") {
-                  n--;
-                  if (n === 0) {
-                    if (a === null) {
-                      i = i + "true";
-                    }
-                    t.shift();
-                    i += ")})";
-                    try {
-                      var s = Tr(
-                        e,
-                        function () {
-                          return Function(i)();
-                        },
-                        function () {
-                          return true;
-                        },
-                      );
-                      s.source = i;
-                      return s;
-                    } catch (e) {
-                      fe(re().body, "htmx:syntax:error", {
-                        error: e,
-                        source: i,
-                      });
-                      return null;
-                    }
-                  }
-                } else if (o === "[") {
-                  n++;
-                }
-                if (Qe(o, a, r)) {
-                  i +=
-                    "((" +
-                    r +
-                    "." +
-                    o +
-                    ") ? (" +
-                    r +
-                    "." +
-                    o +
-                    ") : (window." +
-                    o +
-                    "))";
-                } else {
-                  i = i + o;
-                }
-                a = t.shift();
-              }
-            }
-          }
-          function y(e, t) {
-            var r = "";
-            while (e.length > 0 && !t.test(e[0])) {
-              r += e.shift();
-            }
-            return r;
-          }
-          function tt(e) {
-            var t;
-            if (e.length > 0 && Ze.test(e[0])) {
-              e.shift();
-              t = y(e, Ke).trim();
-              e.shift();
-            } else {
-              t = y(e, x);
-            }
-            return t;
-          }
-          var rt = "input, textarea, select";
-          function nt(e, t, r) {
-            var n = [];
-            var i = Ye(t);
-            do {
-              y(i, Je);
-              var a = i.length;
-              var o = y(i, /[,\[\s]/);
-              if (o !== "") {
-                if (o === "every") {
-                  var s = { trigger: "every" };
-                  y(i, Je);
-                  s.pollInterval = d(y(i, /[,\[\s]/));
-                  y(i, Je);
-                  var l = et(e, i, "event");
-                  if (l) {
-                    s.eventFilter = l;
-                  }
-                  n.push(s);
-                } else if (o.indexOf("sse:") === 0) {
-                  n.push({ trigger: "sse", sseEvent: o.substr(4) });
-                } else {
-                  var u = { trigger: o };
-                  var l = et(e, i, "event");
-                  if (l) {
-                    u.eventFilter = l;
-                  }
-                  while (i.length > 0 && i[0] !== ",") {
-                    y(i, Je);
-                    var f = i.shift();
-                    if (f === "changed") {
-                      u.changed = true;
-                    } else if (f === "once") {
-                      u.once = true;
-                    } else if (f === "consume") {
-                      u.consume = true;
-                    } else if (f === "delay" && i[0] === ":") {
-                      i.shift();
-                      u.delay = d(y(i, x));
-                    } else if (f === "from" && i[0] === ":") {
-                      i.shift();
-                      if (Ze.test(i[0])) {
-                        var c = tt(i);
-                      } else {
-                        var c = y(i, x);
-                        if (
-                          c === "closest" ||
-                          c === "find" ||
-                          c === "next" ||
-                          c === "previous"
-                        ) {
-                          i.shift();
-                          var h = tt(i);
-                          if (h.length > 0) {
-                            c += " " + h;
-                          }
-                        }
-                      }
-                      u.from = c;
-                    } else if (f === "target" && i[0] === ":") {
-                      i.shift();
-                      u.target = tt(i);
-                    } else if (f === "throttle" && i[0] === ":") {
-                      i.shift();
-                      u.throttle = d(y(i, x));
-                    } else if (f === "queue" && i[0] === ":") {
-                      i.shift();
-                      u.queue = y(i, x);
-                    } else if (f === "root" && i[0] === ":") {
-                      i.shift();
-                      u[f] = tt(i);
-                    } else if (f === "threshold" && i[0] === ":") {
-                      i.shift();
-                      u[f] = y(i, x);
-                    } else {
-                      fe(e, "htmx:syntax:error", { token: i.shift() });
-                    }
-                  }
-                  n.push(u);
-                }
-              }
-              if (i.length === a) {
-                fe(e, "htmx:syntax:error", { token: i.shift() });
-              }
-              y(i, Je);
-            } while (i[0] === "," && i.shift());
-            if (r) {
-              r[t] = n;
-            }
-            return n;
-          }
-          function it(e) {
-            var t = te(e, "hx-trigger");
-            var r = [];
-            if (t) {
-              var n = Q.config.triggerSpecsCache;
-              r = (n && n[t]) || nt(e, t, n);
-            }
-            if (r.length > 0) {
-              return r;
-            } else if (h(e, "form")) {
-              return [{ trigger: "submit" }];
-            } else if (h(e, 'input[type="button"], input[type="submit"]')) {
-              return [{ trigger: "click" }];
-            } else if (h(e, rt)) {
-              return [{ trigger: "change" }];
-            } else {
-              return [{ trigger: "click" }];
-            }
-          }
-          function at(e) {
-            ae(e).cancelled = true;
-          }
-          function ot(e, t, r) {
-            var n = ae(e);
-            n.timeout = setTimeout(function () {
-              if (se(e) && n.cancelled !== true) {
-                if (
-                  !ct(
-                    r,
-                    e,
-                    Wt("hx:poll:trigger", { triggerSpec: r, target: e }),
-                  )
-                ) {
-                  t(e);
-                }
-                ot(e, t, r);
-              }
-            }, r.pollInterval);
-          }
-          function st(e) {
-            return (
-              location.hostname === e.hostname &&
-              ee(e, "href") &&
-              ee(e, "href").indexOf("#") !== 0
-            );
-          }
-          function lt(t, r, e) {
-            if (
-              (t.tagName === "A" &&
-                st(t) &&
-                (t.target === "" || t.target === "_self")) ||
-              t.tagName === "FORM"
-            ) {
-              r.boosted = true;
-              var n, i;
-              if (t.tagName === "A") {
-                n = "get";
-                i = ee(t, "href");
-              } else {
-                var a = ee(t, "method");
-                n = a ? a.toLowerCase() : "get";
-                if (n === "get") {
-                }
-                i = ee(t, "action");
-              }
-              e.forEach(function (e) {
-                ht(
-                  t,
-                  function (e, t) {
-                    if (v(e, Q.config.disableSelector)) {
-                      m(e);
-                      return;
-                    }
-                    he(n, i, e, t);
-                  },
-                  r,
-                  e,
-                  true,
-                );
-              });
-            }
-          }
-          function ut(e, t) {
-            if (e.type === "submit" || e.type === "click") {
-              if (t.tagName === "FORM") {
-                return true;
-              }
-              if (
-                h(t, 'input[type="submit"], button') &&
-                v(t, "form") !== null
-              ) {
-                return true;
-              }
-              if (
-                t.tagName === "A" &&
-                t.href &&
-                (t.getAttribute("href") === "#" ||
-                  t.getAttribute("href").indexOf("#") !== 0)
-              ) {
-                return true;
-              }
-            }
-            return false;
-          }
-          function ft(e, t) {
-            return (
-              ae(e).boosted &&
-              e.tagName === "A" &&
-              t.type === "click" &&
-              (t.ctrlKey || t.metaKey)
-            );
-          }
-          function ct(e, t, r) {
-            var n = e.eventFilter;
-            if (n) {
-              try {
-                return n.call(t, r) !== true;
-              } catch (e) {
-                fe(re().body, "htmx:eventFilter:error", {
-                  error: e,
-                  source: n.source,
-                });
-                return true;
-              }
-            }
-            return false;
-          }
-          function ht(a, o, e, s, l) {
-            var u = ae(a);
-            var t;
-            if (s.from) {
-              t = Z(a, s.from);
-            } else {
-              t = [a];
-            }
-            if (s.changed) {
-              t.forEach(function (e) {
-                var t = ae(e);
-                t.lastValue = e.value;
-              });
-            }
-            oe(t, function (n) {
-              var i = function (e) {
-                if (!se(a)) {
-                  n.removeEventListener(s.trigger, i);
-                  return;
-                }
-                if (ft(a, e)) {
-                  return;
-                }
-                if (l || ut(e, a)) {
-                  e.preventDefault();
-                }
-                if (ct(s, a, e)) {
-                  return;
-                }
-                var t = ae(e);
-                t.triggerSpec = s;
-                if (t.handledFor == null) {
-                  t.handledFor = [];
-                }
-                if (t.handledFor.indexOf(a) < 0) {
-                  t.handledFor.push(a);
-                  if (s.consume) {
-                    e.stopPropagation();
-                  }
-                  if (s.target && e.target) {
-                    if (!h(e.target, s.target)) {
-                      return;
-                    }
-                  }
-                  if (s.once) {
-                    if (u.triggeredOnce) {
-                      return;
-                    } else {
-                      u.triggeredOnce = true;
-                    }
-                  }
-                  if (s.changed) {
-                    var r = ae(n);
-                    if (r.lastValue === n.value) {
-                      return;
-                    }
-                    r.lastValue = n.value;
-                  }
-                  if (u.delayed) {
-                    clearTimeout(u.delayed);
-                  }
-                  if (u.throttle) {
-                    return;
-                  }
-                  if (s.throttle > 0) {
-                    if (!u.throttle) {
-                      o(a, e);
-                      u.throttle = setTimeout(function () {
-                        u.throttle = null;
-                      }, s.throttle);
-                    }
-                  } else if (s.delay > 0) {
-                    u.delayed = setTimeout(function () {
-                      o(a, e);
-                    }, s.delay);
-                  } else {
-                    ce(a, "htmx:trigger");
-                    o(a, e);
-                  }
-                }
-              };
-              if (e.listenerInfos == null) {
-                e.listenerInfos = [];
-              }
-              e.listenerInfos.push({ trigger: s.trigger, listener: i, on: n });
-              n.addEventListener(s.trigger, i);
-            });
-          }
-          var vt = false;
-          var dt = null;
-          function gt() {
-            if (!dt) {
-              dt = function () {
-                vt = true;
-              };
-              window.addEventListener("scroll", dt);
-              setInterval(function () {
-                if (vt) {
-                  vt = false;
-                  oe(
-                    re().querySelectorAll(
-                      "[hx-trigger='revealed'],[data-hx-trigger='revealed']",
-                    ),
-                    function (e) {
-                      pt(e);
-                    },
-                  );
-                }
-              }, 200);
-            }
-          }
-          function pt(t) {
-            if (!o(t, "data-hx-revealed") && X(t)) {
-              t.setAttribute("data-hx-revealed", "true");
-              var e = ae(t);
-              if (e.initHash) {
-                ce(t, "revealed");
-              } else {
-                t.addEventListener(
-                  "htmx:afterProcessNode",
-                  function (e) {
-                    ce(t, "revealed");
-                  },
-                  { once: true },
-                );
-              }
-            }
-          }
-          function mt(e, t, r) {
-            var n = D(r);
-            for (var i = 0; i < n.length; i++) {
-              var a = n[i].split(/:(.+)/);
-              if (a[0] === "connect") {
-                xt(e, a[1], 0);
-              }
-              if (a[0] === "send") {
-                bt(e);
-              }
-            }
-          }
-          function xt(s, r, n) {
-            if (!se(s)) {
-              return;
-            }
-            if (r.indexOf("/") == 0) {
-              var e =
-                location.hostname + (location.port ? ":" + location.port : "");
-              if (location.protocol == "https:") {
-                r = "wss://" + e + r;
-              } else if (location.protocol == "http:") {
-                r = "ws://" + e + r;
-              }
-            }
-            var t = Q.createWebSocket(r);
-            t.onerror = function (e) {
-              fe(s, "htmx:wsError", { error: e, socket: t });
-              yt(s);
-            };
-            t.onclose = function (e) {
-              if ([1006, 1012, 1013].indexOf(e.code) >= 0) {
-                var t = wt(n);
-                setTimeout(function () {
-                  xt(s, r, n + 1);
-                }, t);
-              }
-            };
-            t.onopen = function (e) {
-              n = 0;
-            };
-            ae(s).webSocket = t;
-            t.addEventListener("message", function (e) {
-              if (yt(s)) {
-                return;
-              }
-              var t = e.data;
-              R(s, function (e) {
-                t = e.transformResponse(t, null, s);
-              });
-              var r = T(s);
-              var n = l(t);
-              var i = M(n.children);
-              for (var a = 0; a < i.length; a++) {
-                var o = i[a];
-                Ee(te(o, "hx-swap-oob") || "true", o, r);
-              }
-              nr(r.tasks);
-            });
-          }
-          function yt(e) {
-            if (!se(e)) {
-              ae(e).webSocket.close();
-              return true;
-            }
-          }
-          function bt(u) {
-            var f = c(u, function (e) {
-              return ae(e).webSocket != null;
-            });
-            if (f) {
-              u.addEventListener(it(u)[0].trigger, function (e) {
-                var t = ae(f).webSocket;
-                var r = xr(u, f);
-                var n = dr(u, "post");
-                var i = n.errors;
-                var a = n.values;
-                var o = Hr(u);
-                var s = le(a, o);
-                var l = yr(s, u);
-                l["HEADERS"] = r;
-                if (i && i.length > 0) {
-                  ce(u, "htmx:validation:halted", i);
-                  return;
-                }
-                t.send(JSON.stringify(l));
-                if (ut(e, u)) {
-                  e.preventDefault();
-                }
-              });
-            } else {
-              fe(u, "htmx:noWebSocketSourceError");
-            }
-          }
-          function wt(e) {
-            var t = Q.config.wsReconnectDelay;
-            if (typeof t === "function") {
-              return t(e);
-            }
-            if (t === "full-jitter") {
-              var r = Math.min(e, 6);
-              var n = 1e3 * Math.pow(2, r);
-              return n * Math.random();
-            }
-            b(
-              'htmx.config.wsReconnectDelay must either be a function or the string "full-jitter"',
-            );
-          }
-          function St(e, t, r) {
-            var n = D(r);
-            for (var i = 0; i < n.length; i++) {
-              var a = n[i].split(/:(.+)/);
-              if (a[0] === "connect") {
-                Et(e, a[1]);
-              }
-              if (a[0] === "swap") {
-                Ct(e, a[1]);
-              }
-            }
-          }
-          function Et(t, e) {
-            var r = Q.createEventSource(e);
-            r.onerror = function (e) {
-              fe(t, "htmx:sseError", { error: e, source: r });
-              Tt(t);
-            };
-            ae(t).sseEventSource = r;
-          }
-          function Ct(a, o) {
-            var s = c(a, Ot);
-            if (s) {
-              var l = ae(s).sseEventSource;
-              var u = function (e) {
-                if (Tt(s)) {
-                  return;
-                }
-                if (!se(a)) {
-                  l.removeEventListener(o, u);
-                  return;
-                }
-                var t = e.data;
-                R(a, function (e) {
-                  t = e.transformResponse(t, null, a);
-                });
-                var r = wr(a);
-                var n = ye(a);
-                var i = T(a);
-                je(r.swapStyle, n, a, t, i);
-                nr(i.tasks);
-                ce(a, "htmx:sseMessage", e);
-              };
-              ae(a).sseListener = u;
-              l.addEventListener(o, u);
-            } else {
-              fe(a, "htmx:noSSESourceError");
-            }
-          }
-          function Rt(e, t, r) {
-            var n = c(e, Ot);
-            if (n) {
-              var i = ae(n).sseEventSource;
-              var a = function () {
-                if (!Tt(n)) {
-                  if (se(e)) {
-                    t(e);
-                  } else {
-                    i.removeEventListener(r, a);
-                  }
-                }
-              };
-              ae(e).sseListener = a;
-              i.addEventListener(r, a);
-            } else {
-              fe(e, "htmx:noSSESourceError");
-            }
-          }
-          function Tt(e) {
-            if (!se(e)) {
-              ae(e).sseEventSource.close();
-              return true;
-            }
-          }
-          function Ot(e) {
-            return ae(e).sseEventSource != null;
-          }
-          function qt(e, t, r, n) {
-            var i = function () {
-              if (!r.loaded) {
-                r.loaded = true;
-                t(e);
-              }
-            };
-            if (n > 0) {
-              setTimeout(i, n);
-            } else {
-              i();
-            }
-          }
-          function Ht(t, i, e) {
-            var a = false;
-            oe(w, function (r) {
-              if (o(t, "hx-" + r)) {
-                var n = te(t, "hx-" + r);
-                a = true;
-                i.path = n;
-                i.verb = r;
-                e.forEach(function (e) {
-                  Lt(t, e, i, function (e, t) {
-                    if (v(e, Q.config.disableSelector)) {
-                      m(e);
-                      return;
-                    }
-                    he(r, n, e, t);
-                  });
-                });
-              }
-            });
-            return a;
-          }
-          function Lt(n, e, t, r) {
-            if (e.sseEvent) {
-              Rt(n, r, e.sseEvent);
-            } else if (e.trigger === "revealed") {
-              gt();
-              ht(n, r, t, e);
-              pt(n);
-            } else if (e.trigger === "intersect") {
-              var i = {};
-              if (e.root) {
-                i.root = ue(n, e.root);
-              }
-              if (e.threshold) {
-                i.threshold = parseFloat(e.threshold);
-              }
-              var a = new IntersectionObserver(function (e) {
-                for (var t = 0; t < e.length; t++) {
-                  var r = e[t];
-                  if (r.isIntersecting) {
-                    ce(n, "intersect");
-                    break;
-                  }
-                }
-              }, i);
-              a.observe(n);
-              ht(n, r, t, e);
-            } else if (e.trigger === "load") {
-              if (!ct(e, n, Wt("load", { elt: n }))) {
-                qt(n, r, t, e.delay);
-              }
-            } else if (e.pollInterval > 0) {
-              t.polling = true;
-              ot(n, r, e);
-            } else {
-              ht(n, r, t, e);
-            }
-          }
-          function At(e) {
-            if (
-              !e.htmxExecuted &&
-              Q.config.allowScriptTags &&
-              (e.type === "text/javascript" ||
-                e.type === "module" ||
-                e.type === "")
-            ) {
-              var t = re().createElement("script");
-              oe(e.attributes, function (e) {
-                t.setAttribute(e.name, e.value);
-              });
-              t.textContent = e.textContent;
-              t.async = false;
-              if (Q.config.inlineScriptNonce) {
-                t.nonce = Q.config.inlineScriptNonce;
-              }
-              var r = e.parentElement;
-              try {
-                r.insertBefore(t, e);
-              } catch (e) {
-                b(e);
-              } finally {
-                if (e.parentElement) {
-                  e.parentElement.removeChild(e);
-                }
-              }
-            }
-          }
-          function Nt(e) {
-            if (h(e, "script")) {
-              At(e);
-            }
-            oe(f(e, "script"), function (e) {
-              At(e);
-            });
-          }
-          function It(e) {
-            var t = e.attributes;
-            if (!t) {
-              return false;
-            }
-            for (var r = 0; r < t.length; r++) {
-              var n = t[r].name;
-              if (
-                g(n, "hx-on:") ||
-                g(n, "data-hx-on:") ||
-                g(n, "hx-on-") ||
-                g(n, "data-hx-on-")
-              ) {
-                return true;
-              }
-            }
-            return false;
-          }
-          function kt(e) {
-            var t = null;
-            var r = [];
-            if (It(e)) {
-              r.push(e);
-            }
-            if (document.evaluate) {
-              var n = document.evaluate(
-                './/*[@*[ starts-with(name(), "hx-on:") or starts-with(name(), "data-hx-on:") or' +
-                  ' starts-with(name(), "hx-on-") or starts-with(name(), "data-hx-on-") ]]',
-                e,
-              );
-              while ((t = n.iterateNext())) r.push(t);
-            } else if (typeof e.getElementsByTagName === "function") {
-              var i = e.getElementsByTagName("*");
-              for (var a = 0; a < i.length; a++) {
-                if (It(i[a])) {
-                  r.push(i[a]);
-                }
-              }
-            }
-            return r;
-          }
-          function Pt(e) {
-            if (e.querySelectorAll) {
-              var t =
-                ", [hx-boost] a, [data-hx-boost] a, a[hx-boost], a[data-hx-boost]";
-              var r = e.querySelectorAll(
-                i +
-                  t +
-                  ", form, [type='submit'], [hx-sse], [data-hx-sse], [hx-ws]," +
-                  " [data-hx-ws], [hx-ext], [data-hx-ext], [hx-trigger], [data-hx-trigger], [hx-on], [data-hx-on]",
-              );
-              return r;
-            } else {
-              return [];
-            }
-          }
-          function Mt(e) {
-            var t = v(e.target, "button, input[type='submit']");
-            var r = Dt(e);
-            if (r) {
-              r.lastButtonClicked = t;
-            }
-          }
-          function Xt(e) {
-            var t = Dt(e);
-            if (t) {
-              t.lastButtonClicked = null;
-            }
-          }
-          function Dt(e) {
-            var t = v(e.target, "button, input[type='submit']");
-            if (!t) {
-              return;
-            }
-            var r = p("#" + ee(t, "form")) || v(t, "form");
-            if (!r) {
-              return;
-            }
-            return ae(r);
-          }
-          function Ut(e) {
-            e.addEventListener("click", Mt);
-            e.addEventListener("focusin", Mt);
-            e.addEventListener("focusout", Xt);
-          }
-          function Bt(e) {
-            var t = Ye(e);
-            var r = 0;
-            for (var n = 0; n < t.length; n++) {
-              const i = t[n];
-              if (i === "{") {
-                r++;
-              } else if (i === "}") {
-                r--;
-              }
-            }
-            return r;
-          }
-          function Ft(t, e, r) {
-            var n = ae(t);
-            if (!Array.isArray(n.onHandlers)) {
-              n.onHandlers = [];
-            }
-            var i;
-            var a = function (e) {
-              return Tr(t, function () {
-                if (!i) {
-                  i = new Function("event", r);
-                }
-                i.call(t, e);
-              });
-            };
-            t.addEventListener(e, a);
-            n.onHandlers.push({ event: e, listener: a });
-          }
-          function Vt(e) {
-            var t = te(e, "hx-on");
-            if (t) {
-              var r = {};
-              var n = t.split("\n");
-              var i = null;
-              var a = 0;
-              while (n.length > 0) {
-                var o = n.shift();
-                var s = o.match(/^\s*([a-zA-Z:\-\.]+:)(.*)/);
-                if (a === 0 && s) {
-                  o.split(":");
-                  i = s[1].slice(0, -1);
-                  r[i] = s[2];
-                } else {
-                  r[i] += o;
-                }
-                a += Bt(o);
-              }
-              for (var l in r) {
-                Ft(e, l, r[l]);
-              }
-            }
-          }
-          function jt(e) {
-            Ae(e);
-            for (var t = 0; t < e.attributes.length; t++) {
-              var r = e.attributes[t].name;
-              var n = e.attributes[t].value;
-              if (g(r, "hx-on") || g(r, "data-hx-on")) {
-                var i = r.indexOf("-on") + 3;
-                var a = r.slice(i, i + 1);
-                if (a === "-" || a === ":") {
-                  var o = r.slice(i + 1);
-                  if (g(o, ":")) {
-                    o = "htmx" + o;
-                  } else if (g(o, "-")) {
-                    o = "htmx:" + o.slice(1);
-                  } else if (g(o, "htmx-")) {
-                    o = "htmx:" + o.slice(5);
-                  }
-                  Ft(e, o, n);
-                }
-              }
-            }
-          }
-          function _t(t) {
-            if (v(t, Q.config.disableSelector)) {
-              m(t);
-              return;
-            }
-            var r = ae(t);
-            if (r.initHash !== Le(t)) {
-              Ne(t);
-              r.initHash = Le(t);
-              Vt(t);
-              ce(t, "htmx:beforeProcessNode");
-              if (t.value) {
-                r.lastValue = t.value;
-              }
-              var e = it(t);
-              var n = Ht(t, r, e);
-              if (!n) {
-                if (ne(t, "hx-boost") === "true") {
-                  lt(t, r, e);
-                } else if (o(t, "hx-trigger")) {
-                  e.forEach(function (e) {
-                    Lt(t, e, r, function () {});
-                  });
-                }
-              }
-              if (
-                t.tagName === "FORM" ||
-                (ee(t, "type") === "submit" && o(t, "form"))
-              ) {
-                Ut(t);
-              }
-              var i = te(t, "hx-sse");
-              if (i) {
-                St(t, r, i);
-              }
-              var a = te(t, "hx-ws");
-              if (a) {
-                mt(t, r, a);
-              }
-              ce(t, "htmx:afterProcessNode");
-            }
-          }
-          function zt(e) {
-            e = p(e);
-            if (v(e, Q.config.disableSelector)) {
-              m(e);
-              return;
-            }
-            _t(e);
-            oe(Pt(e), function (e) {
-              _t(e);
-            });
-            oe(kt(e), jt);
-          }
-          function $t(e) {
-            return e.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
-          }
-          function Wt(e, t) {
-            var r;
-            if (
-              window.CustomEvent &&
-              typeof window.CustomEvent === "function"
-            ) {
-              r = new CustomEvent(e, {
-                bubbles: true,
-                cancelable: true,
-                detail: t,
-              });
-            } else {
-              r = re().createEvent("CustomEvent");
-              r.initCustomEvent(e, true, true, t);
-            }
-            return r;
-          }
-          function fe(e, t, r) {
-            ce(e, t, le({ error: t }, r));
-          }
-          function Gt(e) {
-            return e === "htmx:afterProcessNode";
-          }
-          function R(e, t) {
-            oe(Fr(e), function (e) {
-              try {
-                t(e);
-              } catch (e) {
-                b(e);
-              }
-            });
-          }
-          function b(e) {
-            if (console.error) {
-              console.error(e);
-            } else if (console.log) {
-              console.log("ERROR: ", e);
-            }
-          }
-          function ce(e, t, r) {
-            e = p(e);
-            if (r == null) {
-              r = {};
-            }
-            r["elt"] = e;
-            var n = Wt(t, r);
-            if (Q.logger && !Gt(t)) {
-              Q.logger(e, t, r);
-            }
-            if (r.error) {
-              b(r.error);
-              ce(e, "htmx:error", { errorInfo: r });
-            }
-            var i = e.dispatchEvent(n);
-            var a = $t(t);
-            if (i && a !== t) {
-              var o = Wt(a, n.detail);
-              i = i && e.dispatchEvent(o);
-            }
-            R(e, function (e) {
-              i = i && e.onEvent(t, n) !== false && !n.defaultPrevented;
-            });
-            return i;
-          }
-          var Jt = location.pathname + location.search;
-          function Zt() {
-            var e = re().querySelector(
-              "[hx-history-elt],[data-hx-history-elt]",
-            );
-            return e || re().body;
-          }
-          function Kt(e, t, r, n) {
-            if (!U()) {
-              return;
-            }
-            if (Q.config.historyCacheSize <= 0) {
-              localStorage.removeItem("htmx-history-cache");
-              return;
-            }
-            e = B(e);
-            var i = E(localStorage.getItem("htmx-history-cache")) || [];
-            for (var a = 0; a < i.length; a++) {
-              if (i[a].url === e) {
-                i.splice(a, 1);
-                break;
-              }
-            }
-            var o = { url: e, content: t, title: r, scroll: n };
-            ce(re().body, "htmx:historyItemCreated", { item: o, cache: i });
-            i.push(o);
-            while (i.length > Q.config.historyCacheSize) {
-              i.shift();
-            }
-            while (i.length > 0) {
-              try {
-                localStorage.setItem("htmx-history-cache", JSON.stringify(i));
-                break;
-              } catch (e) {
-                fe(re().body, "htmx:historyCacheError", { cause: e, cache: i });
-                i.shift();
-              }
-            }
-          }
-          function Yt(e) {
-            if (!U()) {
-              return null;
-            }
-            e = B(e);
-            var t = E(localStorage.getItem("htmx-history-cache")) || [];
-            for (var r = 0; r < t.length; r++) {
-              if (t[r].url === e) {
-                return t[r];
-              }
-            }
-            return null;
-          }
-          function Qt(e) {
-            var t = Q.config.requestClass;
-            var r = e.cloneNode(true);
-            oe(f(r, "." + t), function (e) {
-              n(e, t);
-            });
-            return r.innerHTML;
-          }
-          function er() {
-            var e = Zt();
-            var t = Jt || location.pathname + location.search;
-            var r;
-            try {
-              r = re().querySelector(
-                '[hx-history="false" i],[data-hx-history="false" i]',
-              );
-            } catch (e) {
-              r = re().querySelector(
-                '[hx-history="false"],[data-hx-history="false"]',
-              );
-            }
-            if (!r) {
-              ce(re().body, "htmx:beforeHistorySave", {
-                path: t,
-                historyElt: e,
-              });
-              Kt(t, Qt(e), re().title, window.scrollY);
-            }
-            if (Q.config.historyEnabled)
-              history.replaceState(
-                { htmx: true },
-                re().title,
-                window.location.href,
-              );
-          }
-          function tr(e) {
-            if (Q.config.getCacheBusterParam) {
-              e = e.replace(/org\.htmx\.cache-buster=[^&]*&?/, "");
-              if (G(e, "&") || G(e, "?")) {
-                e = e.slice(0, -1);
-              }
-            }
-            if (Q.config.historyEnabled) {
-              history.pushState({ htmx: true }, "", e);
-            }
-            Jt = e;
-          }
-          function rr(e) {
-            if (Q.config.historyEnabled)
-              history.replaceState({ htmx: true }, "", e);
-            Jt = e;
-          }
-          function nr(e) {
-            oe(e, function (e) {
-              e.call();
-            });
-          }
-          function ir(a) {
-            var e = new XMLHttpRequest();
-            var o = { path: a, xhr: e };
-            ce(re().body, "htmx:historyCacheMiss", o);
-            e.open("GET", a, true);
-            e.setRequestHeader("HX-Request", "true");
-            e.setRequestHeader("HX-History-Restore-Request", "true");
-            e.setRequestHeader("HX-Current-URL", re().location.href);
-            e.onload = function () {
-              if (this.status >= 200 && this.status < 400) {
-                ce(re().body, "htmx:historyCacheMissLoad", o);
-                var e = l(this.response);
-                e =
-                  e.querySelector("[hx-history-elt],[data-hx-history-elt]") ||
-                  e;
-                var t = Zt();
-                var r = T(t);
-                var n = Ve(this.response);
-                if (n) {
-                  var i = C("title");
-                  if (i) {
-                    i.innerHTML = n;
-                  } else {
-                    window.document.title = n;
-                  }
-                }
-                Ue(t, e, r);
-                nr(r.tasks);
-                Jt = a;
-                ce(re().body, "htmx:historyRestore", {
-                  path: a,
-                  cacheMiss: true,
-                  serverResponse: this.response,
-                });
-              } else {
-                fe(re().body, "htmx:historyCacheMissLoadError", o);
-              }
-            };
-            e.send();
-          }
-          function ar(e) {
-            er();
-            e = e || location.pathname + location.search;
-            var t = Yt(e);
-            if (t) {
-              var r = l(t.content);
-              var n = Zt();
-              var i = T(n);
-              Ue(n, r, i);
-              nr(i.tasks);
-              document.title = t.title;
-              setTimeout(function () {
-                window.scrollTo(0, t.scroll);
-              }, 0);
-              Jt = e;
-              ce(re().body, "htmx:historyRestore", { path: e, item: t });
-            } else {
-              if (Q.config.refreshOnHistoryMiss) {
-                window.location.reload(true);
-              } else {
-                ir(e);
-              }
-            }
-          }
-          function or(e) {
-            var t = me(e, "hx-indicator");
-            if (t == null) {
-              t = [e];
-            }
-            oe(t, function (e) {
-              var t = ae(e);
-              t.requestCount = (t.requestCount || 0) + 1;
-              e.classList["add"].call(e.classList, Q.config.requestClass);
-            });
-            return t;
-          }
-          function sr(e) {
-            var t = me(e, "hx-disabled-elt");
-            if (t == null) {
-              t = [];
-            }
-            oe(t, function (e) {
-              var t = ae(e);
-              t.requestCount = (t.requestCount || 0) + 1;
-              e.setAttribute("disabled", "");
-            });
-            return t;
-          }
-          function lr(e, t) {
-            oe(e, function (e) {
-              var t = ae(e);
-              t.requestCount = (t.requestCount || 0) - 1;
-              if (t.requestCount === 0) {
-                e.classList["remove"].call(e.classList, Q.config.requestClass);
-              }
-            });
-            oe(t, function (e) {
-              var t = ae(e);
-              t.requestCount = (t.requestCount || 0) - 1;
-              if (t.requestCount === 0) {
-                e.removeAttribute("disabled");
-              }
-            });
-          }
-          function ur(e, t) {
-            for (var r = 0; r < e.length; r++) {
-              var n = e[r];
-              if (n.isSameNode(t)) {
-                return true;
-              }
-            }
-            return false;
-          }
-          function fr(e) {
-            if (
-              e.name === "" ||
-              e.name == null ||
-              e.disabled ||
-              v(e, "fieldset[disabled]")
-            ) {
-              return false;
-            }
-            if (
-              e.type === "button" ||
-              e.type === "submit" ||
-              e.tagName === "image" ||
-              e.tagName === "reset" ||
-              e.tagName === "file"
-            ) {
-              return false;
-            }
-            if (e.type === "checkbox" || e.type === "radio") {
-              return e.checked;
-            }
-            return true;
-          }
-          function cr(e, t, r) {
-            if (e != null && t != null) {
-              var n = r[e];
-              if (n === undefined) {
-                r[e] = t;
-              } else if (Array.isArray(n)) {
-                if (Array.isArray(t)) {
-                  r[e] = n.concat(t);
-                } else {
-                  n.push(t);
-                }
-              } else {
-                if (Array.isArray(t)) {
-                  r[e] = [n].concat(t);
-                } else {
-                  r[e] = [n, t];
-                }
-              }
-            }
-          }
-          function hr(t, r, n, e, i) {
-            if (e == null || ur(t, e)) {
-              return;
-            } else {
-              t.push(e);
-            }
-            if (fr(e)) {
-              var a = ee(e, "name");
-              var o = e.value;
-              if (e.multiple && e.tagName === "SELECT") {
-                o = M(e.querySelectorAll("option:checked")).map(function (e) {
-                  return e.value;
-                });
-              }
-              if (e.files) {
-                o = M(e.files);
-              }
-              cr(a, o, r);
-              if (i) {
-                vr(e, n);
-              }
-            }
-            if (h(e, "form")) {
-              var s = e.elements;
-              oe(s, function (e) {
-                hr(t, r, n, e, i);
-              });
-            }
-          }
-          function vr(e, t) {
-            if (e.willValidate) {
-              ce(e, "htmx:validation:validate");
-              if (!e.checkValidity()) {
-                t.push({
-                  elt: e,
-                  message: e.validationMessage,
-                  validity: e.validity,
-                });
-                ce(e, "htmx:validation:failed", {
-                  message: e.validationMessage,
-                  validity: e.validity,
-                });
-              }
-            }
-          }
-          function dr(e, t) {
-            var r = [];
-            var n = {};
-            var i = {};
-            var a = [];
-            var o = ae(e);
-            if (o.lastButtonClicked && !se(o.lastButtonClicked)) {
-              o.lastButtonClicked = null;
-            }
-            var s =
-              (h(e, "form") && e.noValidate !== true) ||
-              te(e, "hx-validate") === "true";
-            if (o.lastButtonClicked) {
-              s = s && o.lastButtonClicked.formNoValidate !== true;
-            }
-            if (t !== "get") {
-              hr(r, i, a, v(e, "form"), s);
-            }
-            hr(r, n, a, e, s);
-            if (
-              o.lastButtonClicked ||
-              e.tagName === "BUTTON" ||
-              (e.tagName === "INPUT" && ee(e, "type") === "submit")
-            ) {
-              var l = o.lastButtonClicked || e;
-              var u = ee(l, "name");
-              cr(u, l.value, i);
-            }
-            var f = me(e, "hx-include");
-            oe(f, function (e) {
-              hr(r, n, a, e, s);
-              if (!h(e, "form")) {
-                oe(e.querySelectorAll(rt), function (e) {
-                  hr(r, n, a, e, s);
-                });
-              }
-            });
-            n = le(n, i);
-            return { errors: a, values: n };
-          }
-          function gr(e, t, r) {
-            if (e !== "") {
-              e += "&";
-            }
-            if (String(r) === "[object Object]") {
-              r = JSON.stringify(r);
-            }
-            var n = encodeURIComponent(r);
-            e += encodeURIComponent(t) + "=" + n;
-            return e;
-          }
-          function pr(e) {
-            var t = "";
-            for (var r in e) {
-              if (e.hasOwnProperty(r)) {
-                var n = e[r];
-                if (Array.isArray(n)) {
-                  oe(n, function (e) {
-                    t = gr(t, r, e);
-                  });
-                } else {
-                  t = gr(t, r, n);
-                }
-              }
-            }
-            return t;
-          }
-          function mr(e) {
-            var t = new FormData();
-            for (var r in e) {
-              if (e.hasOwnProperty(r)) {
-                var n = e[r];
-                if (Array.isArray(n)) {
-                  oe(n, function (e) {
-                    t.append(r, e);
-                  });
-                } else {
-                  t.append(r, n);
-                }
-              }
-            }
-            return t;
-          }
-          function xr(e, t, r) {
-            var n = {
-              "HX-Request": "true",
-              "HX-Trigger": ee(e, "id"),
-              "HX-Trigger-Name": ee(e, "name"),
-              "HX-Target": te(t, "id"),
-              "HX-Current-URL": re().location.href,
-            };
-            Rr(e, "hx-headers", false, n);
-            if (r !== undefined) {
-              n["HX-Prompt"] = r;
-            }
-            if (ae(e).boosted) {
-              n["HX-Boosted"] = "true";
-            }
-            return n;
-          }
-          function yr(t, e) {
-            var r = ne(e, "hx-params");
-            if (r) {
-              if (r === "none") {
-                return {};
-              } else if (r === "*") {
-                return t;
-              } else if (r.indexOf("not ") === 0) {
-                oe(r.substr(4).split(","), function (e) {
-                  e = e.trim();
-                  delete t[e];
-                });
-                return t;
-              } else {
-                var n = {};
-                oe(r.split(","), function (e) {
-                  e = e.trim();
-                  n[e] = t[e];
-                });
-                return n;
-              }
-            } else {
-              return t;
-            }
-          }
-          function br(e) {
-            return ee(e, "href") && ee(e, "href").indexOf("#") >= 0;
-          }
-          function wr(e, t) {
-            var r = t ? t : ne(e, "hx-swap");
-            var n = {
-              swapStyle: ae(e).boosted
-                ? "innerHTML"
-                : Q.config.defaultSwapStyle,
-              swapDelay: Q.config.defaultSwapDelay,
-              settleDelay: Q.config.defaultSettleDelay,
-            };
-            if (Q.config.scrollIntoViewOnBoost && ae(e).boosted && !br(e)) {
-              n["show"] = "top";
-            }
-            if (r) {
-              var i = D(r);
-              if (i.length > 0) {
-                for (var a = 0; a < i.length; a++) {
-                  var o = i[a];
-                  if (o.indexOf("swap:") === 0) {
-                    n["swapDelay"] = d(o.substr(5));
-                  } else if (o.indexOf("settle:") === 0) {
-                    n["settleDelay"] = d(o.substr(7));
-                  } else if (o.indexOf("transition:") === 0) {
-                    n["transition"] = o.substr(11) === "true";
-                  } else if (o.indexOf("ignoreTitle:") === 0) {
-                    n["ignoreTitle"] = o.substr(12) === "true";
-                  } else if (o.indexOf("scroll:") === 0) {
-                    var s = o.substr(7);
-                    var l = s.split(":");
-                    var u = l.pop();
-                    var f = l.length > 0 ? l.join(":") : null;
-                    n["scroll"] = u;
-                    n["scrollTarget"] = f;
-                  } else if (o.indexOf("show:") === 0) {
-                    var c = o.substr(5);
-                    var l = c.split(":");
-                    var h = l.pop();
-                    var f = l.length > 0 ? l.join(":") : null;
-                    n["show"] = h;
-                    n["showTarget"] = f;
-                  } else if (o.indexOf("focus-scroll:") === 0) {
-                    var v = o.substr("focus-scroll:".length);
-                    n["focusScroll"] = v == "true";
-                  } else if (a == 0) {
-                    n["swapStyle"] = o;
-                  } else {
-                    b("Unknown modifier in hx-swap: " + o);
-                  }
-                }
-              }
-            }
-            return n;
-          }
-          function Sr(e) {
-            return (
-              ne(e, "hx-encoding") === "multipart/form-data" ||
-              (h(e, "form") && ee(e, "enctype") === "multipart/form-data")
-            );
-          }
-          function Er(t, r, n) {
-            var i = null;
-            R(r, function (e) {
-              if (i == null) {
-                i = e.encodeParameters(t, n, r);
-              }
-            });
-            if (i != null) {
-              return i;
-            } else {
-              if (Sr(r)) {
-                return mr(n);
-              } else {
-                return pr(n);
-              }
-            }
-          }
-          function T(e) {
-            return { tasks: [], elts: [e] };
-          }
-          function Cr(e, t) {
-            var r = e[0];
-            var n = e[e.length - 1];
-            if (t.scroll) {
-              var i = null;
-              if (t.scrollTarget) {
-                i = ue(r, t.scrollTarget);
-              }
-              if (t.scroll === "top" && (r || i)) {
-                i = i || r;
-                i.scrollTop = 0;
-              }
-              if (t.scroll === "bottom" && (n || i)) {
-                i = i || n;
-                i.scrollTop = i.scrollHeight;
-              }
-            }
-            if (t.show) {
-              var i = null;
-              if (t.showTarget) {
-                var a = t.showTarget;
-                if (t.showTarget === "window") {
-                  a = "body";
-                }
-                i = ue(r, a);
-              }
-              if (t.show === "top" && (r || i)) {
-                i = i || r;
-                i.scrollIntoView({
-                  block: "start",
-                  behavior: Q.config.scrollBehavior,
-                });
-              }
-              if (t.show === "bottom" && (n || i)) {
-                i = i || n;
-                i.scrollIntoView({
-                  block: "end",
-                  behavior: Q.config.scrollBehavior,
-                });
-              }
-            }
-          }
-          function Rr(e, t, r, n) {
-            if (n == null) {
-              n = {};
-            }
-            if (e == null) {
-              return n;
-            }
-            var i = te(e, t);
-            if (i) {
-              var a = i.trim();
-              var o = r;
-              if (a === "unset") {
-                return null;
-              }
-              if (a.indexOf("javascript:") === 0) {
-                a = a.substr(11);
-                o = true;
-              } else if (a.indexOf("js:") === 0) {
-                a = a.substr(3);
-                o = true;
-              }
-              if (a.indexOf("{") !== 0) {
-                a = "{" + a + "}";
-              }
-              var s;
-              if (o) {
-                s = Tr(
-                  e,
-                  function () {
-                    return Function("return (" + a + ")")();
-                  },
-                  {},
-                );
-              } else {
-                s = E(a);
-              }
-              for (var l in s) {
-                if (s.hasOwnProperty(l)) {
-                  if (n[l] == null) {
-                    n[l] = s[l];
-                  }
-                }
-              }
-            }
-            return Rr(u(e), t, r, n);
-          }
-          function Tr(e, t, r) {
-            if (Q.config.allowEval) {
-              return t();
-            } else {
-              fe(e, "htmx:evalDisallowedError");
-              return r;
-            }
-          }
-          function Or(e, t) {
-            return Rr(e, "hx-vars", true, t);
-          }
-          function qr(e, t) {
-            return Rr(e, "hx-vals", false, t);
-          }
-          function Hr(e) {
-            return le(Or(e), qr(e));
-          }
-          function Lr(t, r, n) {
-            if (n !== null) {
-              try {
-                t.setRequestHeader(r, n);
-              } catch (e) {
-                t.setRequestHeader(r, encodeURIComponent(n));
-                t.setRequestHeader(r + "-URI-AutoEncoded", "true");
-              }
-            }
-          }
-          function Ar(t) {
-            if (t.responseURL && typeof URL !== "undefined") {
-              try {
-                var e = new URL(t.responseURL);
-                return e.pathname + e.search;
-              } catch (e) {
-                fe(re().body, "htmx:badResponseUrl", { url: t.responseURL });
-              }
-            }
-          }
-          function O(e, t) {
-            return t.test(e.getAllResponseHeaders());
-          }
-          function Nr(e, t, r) {
-            e = e.toLowerCase();
-            if (r) {
-              if (r instanceof Element || I(r, "String")) {
-                return he(e, t, null, null, {
-                  targetOverride: p(r),
-                  returnPromise: true,
-                });
-              } else {
-                return he(e, t, p(r.source), r.event, {
-                  handler: r.handler,
-                  headers: r.headers,
-                  values: r.values,
-                  targetOverride: p(r.target),
-                  swapOverride: r.swap,
-                  select: r.select,
-                  returnPromise: true,
-                });
-              }
-            } else {
-              return he(e, t, null, null, { returnPromise: true });
-            }
-          }
-          function Ir(e) {
-            var t = [];
-            while (e) {
-              t.push(e);
-              e = e.parentElement;
-            }
-            return t;
-          }
-          function kr(e, t, r) {
-            var n;
-            var i;
-            if (typeof URL === "function") {
-              i = new URL(t, document.location.href);
-              var a = document.location.origin;
-              n = a === i.origin;
-            } else {
-              i = t;
-              n = g(t, document.location.origin);
-            }
-            if (Q.config.selfRequestsOnly) {
-              if (!n) {
-                return false;
-              }
-            }
-            return ce(e, "htmx:validateUrl", le({ url: i, sameHost: n }, r));
-          }
-          function he(t, r, n, i, a, e) {
-            var o = null;
-            var s = null;
-            a = a != null ? a : {};
-            if (a.returnPromise && typeof Promise !== "undefined") {
-              var l = new Promise(function (e, t) {
-                o = e;
-                s = t;
-              });
-            }
-            if (n == null) {
-              n = re().body;
-            }
-            var M = a.handler || Mr;
-            var X = a.select || null;
-            if (!se(n)) {
-              ie(o);
-              return l;
-            }
-            var u = a.targetOverride || ye(n);
-            if (u == null || u == pe) {
-              fe(n, "htmx:targetError", { target: te(n, "hx-target") });
-              ie(s);
-              return l;
-            }
-            var f = ae(n);
-            var c = f.lastButtonClicked;
-            if (c) {
-              var h = ee(c, "formaction");
-              if (h != null) {
-                r = h;
-              }
-              var v = ee(c, "formmethod");
-              if (v != null) {
-                if (v.toLowerCase() !== "dialog") {
-                  t = v;
-                }
-              }
-            }
-            var d = ne(n, "hx-confirm");
-            if (e === undefined) {
-              var D = function (e) {
-                return he(t, r, n, i, a, !!e);
-              };
-              var U = {
-                target: u,
-                elt: n,
-                path: r,
-                verb: t,
-                triggeringEvent: i,
-                etc: a,
-                issueRequest: D,
-                question: d,
-              };
-              if (ce(n, "htmx:confirm", U) === false) {
-                ie(o);
-                return l;
-              }
-            }
-            var g = n;
-            var p = ne(n, "hx-sync");
-            var m = null;
-            var x = false;
-            if (p) {
-              var B = p.split(":");
-              var F = B[0].trim();
-              if (F === "this") {
-                g = xe(n, "hx-sync");
-              } else {
-                g = ue(n, F);
-              }
-              p = (B[1] || "drop").trim();
-              f = ae(g);
-              if (p === "drop" && f.xhr && f.abortable !== true) {
-                ie(o);
-                return l;
-              } else if (p === "abort") {
-                if (f.xhr) {
-                  ie(o);
-                  return l;
-                } else {
-                  x = true;
-                }
-              } else if (p === "replace") {
-                ce(g, "htmx:abort");
-              } else if (p.indexOf("queue") === 0) {
-                var V = p.split(" ");
-                m = (V[1] || "last").trim();
-              }
-            }
-            if (f.xhr) {
-              if (f.abortable) {
-                ce(g, "htmx:abort");
-              } else {
-                if (m == null) {
-                  if (i) {
-                    var y = ae(i);
-                    if (y && y.triggerSpec && y.triggerSpec.queue) {
-                      m = y.triggerSpec.queue;
-                    }
-                  }
-                  if (m == null) {
-                    m = "last";
-                  }
-                }
-                if (f.queuedRequests == null) {
-                  f.queuedRequests = [];
-                }
-                if (m === "first" && f.queuedRequests.length === 0) {
-                  f.queuedRequests.push(function () {
-                    he(t, r, n, i, a);
-                  });
-                } else if (m === "all") {
-                  f.queuedRequests.push(function () {
-                    he(t, r, n, i, a);
-                  });
-                } else if (m === "last") {
-                  f.queuedRequests = [];
-                  f.queuedRequests.push(function () {
-                    he(t, r, n, i, a);
-                  });
-                }
-                ie(o);
-                return l;
-              }
-            }
-            var b = new XMLHttpRequest();
-            f.xhr = b;
-            f.abortable = x;
-            var w = function () {
-              f.xhr = null;
-              f.abortable = false;
-              if (f.queuedRequests != null && f.queuedRequests.length > 0) {
-                var e = f.queuedRequests.shift();
-                e();
-              }
-            };
-            var j = ne(n, "hx-prompt");
-            if (j) {
-              var S = prompt(j);
-              if (
-                S === null ||
-                !ce(n, "htmx:prompt", { prompt: S, target: u })
-              ) {
-                ie(o);
-                w();
-                return l;
-              }
-            }
-            if (d && !e) {
-              if (!confirm(d)) {
-                ie(o);
-                w();
-                return l;
-              }
-            }
-            var E = xr(n, u, S);
-            if (t !== "get" && !Sr(n)) {
-              E["Content-Type"] = "application/x-www-form-urlencoded";
-            }
-            if (a.headers) {
-              E = le(E, a.headers);
-            }
-            var _ = dr(n, t);
-            var C = _.errors;
-            var R = _.values;
-            if (a.values) {
-              R = le(R, a.values);
-            }
-            var z = Hr(n);
-            var $ = le(R, z);
-            var T = yr($, n);
-            if (Q.config.getCacheBusterParam && t === "get") {
-              T["org.htmx.cache-buster"] = ee(u, "id") || "true";
-            }
-            if (r == null || r === "") {
-              r = re().location.href;
-            }
-            var O = Rr(n, "hx-request");
-            var W = ae(n).boosted;
-            var q = Q.config.methodsThatUseUrlParams.indexOf(t) >= 0;
-            var H = {
-              boosted: W,
-              useUrlParams: q,
-              parameters: T,
-              unfilteredParameters: $,
-              headers: E,
-              target: u,
-              verb: t,
-              errors: C,
-              withCredentials:
-                a.credentials || O.credentials || Q.config.withCredentials,
-              timeout: a.timeout || O.timeout || Q.config.timeout,
-              path: r,
-              triggeringEvent: i,
-            };
-            if (!ce(n, "htmx:configRequest", H)) {
-              ie(o);
-              w();
-              return l;
-            }
-            r = H.path;
-            t = H.verb;
-            E = H.headers;
-            T = H.parameters;
-            C = H.errors;
-            q = H.useUrlParams;
-            if (C && C.length > 0) {
-              ce(n, "htmx:validation:halted", H);
-              ie(o);
-              w();
-              return l;
-            }
-            var G = r.split("#");
-            var J = G[0];
-            var L = G[1];
-            var A = r;
-            if (q) {
-              A = J;
-              var Z = Object.keys(T).length !== 0;
-              if (Z) {
-                if (A.indexOf("?") < 0) {
-                  A += "?";
-                } else {
-                  A += "&";
-                }
-                A += pr(T);
-                if (L) {
-                  A += "#" + L;
-                }
-              }
-            }
-            if (!kr(n, A, H)) {
-              fe(n, "htmx:invalidPath", H);
-              ie(s);
-              return l;
-            }
-            b.open(t.toUpperCase(), A, true);
-            b.overrideMimeType("text/html");
-            b.withCredentials = H.withCredentials;
-            b.timeout = H.timeout;
-            if (O.noHeaders) {
-            } else {
-              for (var N in E) {
-                if (E.hasOwnProperty(N)) {
-                  var K = E[N];
-                  Lr(b, N, K);
-                }
-              }
-            }
-            var I = {
-              xhr: b,
-              target: u,
-              requestConfig: H,
-              etc: a,
-              boosted: W,
-              select: X,
-              pathInfo: { requestPath: r, finalRequestPath: A, anchor: L },
-            };
-            b.onload = function () {
-              try {
-                var e = Ir(n);
-                I.pathInfo.responsePath = Ar(b);
-                M(n, I);
-                lr(k, P);
-                ce(n, "htmx:afterRequest", I);
-                ce(n, "htmx:afterOnLoad", I);
-                if (!se(n)) {
-                  var t = null;
-                  while (e.length > 0 && t == null) {
-                    var r = e.shift();
-                    if (se(r)) {
-                      t = r;
-                    }
-                  }
-                  if (t) {
-                    ce(t, "htmx:afterRequest", I);
-                    ce(t, "htmx:afterOnLoad", I);
-                  }
-                }
-                ie(o);
-                w();
-              } catch (e) {
-                fe(n, "htmx:onLoadError", le({ error: e }, I));
-                throw e;
-              }
-            };
-            b.onerror = function () {
-              lr(k, P);
-              fe(n, "htmx:afterRequest", I);
-              fe(n, "htmx:sendError", I);
-              ie(s);
-              w();
-            };
-            b.onabort = function () {
-              lr(k, P);
-              fe(n, "htmx:afterRequest", I);
-              fe(n, "htmx:sendAbort", I);
-              ie(s);
-              w();
-            };
-            b.ontimeout = function () {
-              lr(k, P);
-              fe(n, "htmx:afterRequest", I);
-              fe(n, "htmx:timeout", I);
-              ie(s);
-              w();
-            };
-            if (!ce(n, "htmx:beforeRequest", I)) {
-              ie(o);
-              w();
-              return l;
-            }
-            var k = or(n);
-            var P = sr(n);
-            oe(["loadstart", "loadend", "progress", "abort"], function (t) {
-              oe([b, b.upload], function (e) {
-                e.addEventListener(t, function (e) {
-                  ce(n, "htmx:xhr:" + t, {
-                    lengthComputable: e.lengthComputable,
-                    loaded: e.loaded,
-                    total: e.total,
-                  });
-                });
-              });
-            });
-            ce(n, "htmx:beforeSend", I);
-            var Y = q ? null : Er(b, n, T);
-            b.send(Y);
-            return l;
-          }
-          function Pr(e, t) {
-            var r = t.xhr;
-            var n = null;
-            var i = null;
-            if (O(r, /HX-Push:/i)) {
-              n = r.getResponseHeader("HX-Push");
-              i = "push";
-            } else if (O(r, /HX-Push-Url:/i)) {
-              n = r.getResponseHeader("HX-Push-Url");
-              i = "push";
-            } else if (O(r, /HX-Replace-Url:/i)) {
-              n = r.getResponseHeader("HX-Replace-Url");
-              i = "replace";
-            }
-            if (n) {
-              if (n === "false") {
-                return {};
-              } else {
-                return { type: i, path: n };
-              }
-            }
-            var a = t.pathInfo.finalRequestPath;
-            var o = t.pathInfo.responsePath;
-            var s = ne(e, "hx-push-url");
-            var l = ne(e, "hx-replace-url");
-            var u = ae(e).boosted;
-            var f = null;
-            var c = null;
-            if (s) {
-              f = "push";
-              c = s;
-            } else if (l) {
-              f = "replace";
-              c = l;
-            } else if (u) {
-              f = "push";
-              c = o || a;
-            }
-            if (c) {
-              if (c === "false") {
-                return {};
-              }
-              if (c === "true") {
-                c = o || a;
-              }
-              if (t.pathInfo.anchor && c.indexOf("#") === -1) {
-                c = c + "#" + t.pathInfo.anchor;
-              }
-              return { type: f, path: c };
-            } else {
-              return {};
-            }
-          }
-          function Mr(l, u) {
-            var f = u.xhr;
-            var c = u.target;
-            var e = u.etc;
-            var t = u.requestConfig;
-            var h = u.select;
-            if (!ce(l, "htmx:beforeOnLoad", u)) return;
-            if (O(f, /HX-Trigger:/i)) {
-              _e(f, "HX-Trigger", l);
-            }
-            if (O(f, /HX-Location:/i)) {
-              er();
-              var r = f.getResponseHeader("HX-Location");
-              var v;
-              if (r.indexOf("{") === 0) {
-                v = E(r);
-                r = v["path"];
-                delete v["path"];
-              }
-              Nr("GET", r, v).then(function () {
-                tr(r);
-              });
-              return;
-            }
-            var n =
-              O(f, /HX-Refresh:/i) &&
-              "true" === f.getResponseHeader("HX-Refresh");
-            if (O(f, /HX-Redirect:/i)) {
-              location.href = f.getResponseHeader("HX-Redirect");
-              n && location.reload();
-              return;
-            }
-            if (n) {
-              location.reload();
-              return;
-            }
-            if (O(f, /HX-Retarget:/i)) {
-              if (f.getResponseHeader("HX-Retarget") === "this") {
-                u.target = l;
-              } else {
-                u.target = ue(l, f.getResponseHeader("HX-Retarget"));
-              }
-            }
-            var d = Pr(l, u);
-            var i = f.status >= 200 && f.status < 400 && f.status !== 204;
-            var g = f.response;
-            var a = f.status >= 400;
-            var p = Q.config.ignoreTitle;
-            var o = le(
-              { shouldSwap: i, serverResponse: g, isError: a, ignoreTitle: p },
-              u,
-            );
-            if (!ce(c, "htmx:beforeSwap", o)) return;
-            c = o.target;
-            g = o.serverResponse;
-            a = o.isError;
-            p = o.ignoreTitle;
-            u.target = c;
-            u.failed = a;
-            u.successful = !a;
-            if (o.shouldSwap) {
-              if (f.status === 286) {
-                at(l);
-              }
-              R(l, function (e) {
-                g = e.transformResponse(g, f, l);
-              });
-              if (d.type) {
-                er();
-              }
-              var s = e.swapOverride;
-              if (O(f, /HX-Reswap:/i)) {
-                s = f.getResponseHeader("HX-Reswap");
-              }
-              var v = wr(l, s);
-              if (v.hasOwnProperty("ignoreTitle")) {
-                p = v.ignoreTitle;
-              }
-              c.classList.add(Q.config.swappingClass);
-              var m = null;
-              var x = null;
-              var y = function () {
-                try {
-                  var e = document.activeElement;
-                  var t = {};
-                  try {
-                    t = {
-                      elt: e,
-                      start: e ? e.selectionStart : null,
-                      end: e ? e.selectionEnd : null,
-                    };
-                  } catch (e) {}
-                  var r;
-                  if (h) {
-                    r = h;
-                  }
-                  if (O(f, /HX-Reselect:/i)) {
-                    r = f.getResponseHeader("HX-Reselect");
-                  }
-                  if (d.type) {
-                    ce(
-                      re().body,
-                      "htmx:beforeHistoryUpdate",
-                      le({ history: d }, u),
-                    );
-                    if (d.type === "push") {
-                      tr(d.path);
-                      ce(re().body, "htmx:pushedIntoHistory", { path: d.path });
-                    } else {
-                      rr(d.path);
-                      ce(re().body, "htmx:replacedInHistory", { path: d.path });
-                    }
-                  }
-                  var n = T(c);
-                  je(v.swapStyle, c, l, g, n, r);
-                  if (t.elt && !se(t.elt) && ee(t.elt, "id")) {
-                    var i = document.getElementById(ee(t.elt, "id"));
-                    var a = {
-                      preventScroll:
-                        v.focusScroll !== undefined
-                          ? !v.focusScroll
-                          : !Q.config.defaultFocusScroll,
-                    };
-                    if (i) {
-                      if (t.start && i.setSelectionRange) {
-                        try {
-                          i.setSelectionRange(t.start, t.end);
-                        } catch (e) {}
-                      }
-                      i.focus(a);
-                    }
-                  }
-                  c.classList.remove(Q.config.swappingClass);
-                  oe(n.elts, function (e) {
-                    if (e.classList) {
-                      e.classList.add(Q.config.settlingClass);
-                    }
-                    ce(e, "htmx:afterSwap", u);
-                  });
-                  if (O(f, /HX-Trigger-After-Swap:/i)) {
-                    var o = l;
-                    if (!se(l)) {
-                      o = re().body;
-                    }
-                    _e(f, "HX-Trigger-After-Swap", o);
-                  }
-                  var s = function () {
-                    oe(n.tasks, function (e) {
-                      e.call();
-                    });
-                    oe(n.elts, function (e) {
-                      if (e.classList) {
-                        e.classList.remove(Q.config.settlingClass);
-                      }
-                      ce(e, "htmx:afterSettle", u);
-                    });
-                    if (u.pathInfo.anchor) {
-                      var e = re().getElementById(u.pathInfo.anchor);
-                      if (e) {
-                        e.scrollIntoView({ block: "start", behavior: "auto" });
-                      }
-                    }
-                    if (n.title && !p) {
-                      var t = C("title");
-                      if (t) {
-                        t.innerHTML = n.title;
-                      } else {
-                        window.document.title = n.title;
-                      }
-                    }
-                    Cr(n.elts, v);
-                    if (O(f, /HX-Trigger-After-Settle:/i)) {
-                      var r = l;
-                      if (!se(l)) {
-                        r = re().body;
-                      }
-                      _e(f, "HX-Trigger-After-Settle", r);
-                    }
-                    ie(m);
-                  };
-                  if (v.settleDelay > 0) {
-                    setTimeout(s, v.settleDelay);
-                  } else {
-                    s();
-                  }
-                } catch (e) {
-                  fe(l, "htmx:swapError", u);
-                  ie(x);
-                  throw e;
-                }
-              };
-              var b = Q.config.globalViewTransitions;
-              if (v.hasOwnProperty("transition")) {
-                b = v.transition;
-              }
-              if (
-                b &&
-                ce(l, "htmx:beforeTransition", u) &&
-                typeof Promise !== "undefined" &&
-                document.startViewTransition
-              ) {
-                var w = new Promise(function (e, t) {
-                  m = e;
-                  x = t;
-                });
-                var S = y;
-                y = function () {
-                  document.startViewTransition(function () {
-                    S();
-                    return w;
-                  });
-                };
-              }
-              if (v.swapDelay > 0) {
-                setTimeout(y, v.swapDelay);
-              } else {
-                y();
-              }
-            }
-            if (a) {
-              fe(
-                l,
-                "htmx:responseError",
-                le(
-                  {
-                    error:
-                      "Response Status Error Code " +
-                      f.status +
-                      " from " +
-                      u.pathInfo.requestPath,
-                  },
-                  u,
-                ),
-              );
-            }
-          }
-          var Xr = {};
-          function Dr() {
-            return {
-              init: function (e) {
-                return null;
-              },
-              onEvent: function (e, t) {
-                return true;
-              },
-              transformResponse: function (e, t, r) {
-                return e;
-              },
-              isInlineSwap: function (e) {
-                return false;
-              },
-              handleSwap: function (e, t, r, n) {
-                return false;
-              },
-              encodeParameters: function (e, t, r) {
-                return null;
-              },
-            };
-          }
-          function Ur(e, t) {
-            if (t.init) {
-              t.init(r);
-            }
-            Xr[e] = le(Dr(), t);
-          }
-          function Br(e) {
-            delete Xr[e];
-          }
-          function Fr(e, r, n) {
-            if (e == undefined) {
-              return r;
-            }
-            if (r == undefined) {
-              r = [];
-            }
-            if (n == undefined) {
-              n = [];
-            }
-            var t = te(e, "hx-ext");
-            if (t) {
-              oe(t.split(","), function (e) {
-                e = e.replace(/ /g, "");
-                if (e.slice(0, 7) == "ignore:") {
-                  n.push(e.slice(7));
-                  return;
-                }
-                if (n.indexOf(e) < 0) {
-                  var t = Xr[e];
-                  if (t && r.indexOf(t) < 0) {
-                    r.push(t);
-                  }
-                }
-              });
-            }
-            return Fr(u(e), r, n);
-          }
-          var Vr = false;
-          re().addEventListener("DOMContentLoaded", function () {
-            Vr = true;
-          });
-          function jr(e) {
-            if (Vr || re().readyState === "complete") {
-              e();
-            } else {
-              re().addEventListener("DOMContentLoaded", e);
-            }
-          }
-          function _r() {
-            if (Q.config.includeIndicatorStyles !== false) {
-              re().head.insertAdjacentHTML(
-                "beforeend",
-                "<style>                      ." +
-                  Q.config.indicatorClass +
-                  "{opacity:0}                      ." +
-                  Q.config.requestClass +
-                  " ." +
-                  Q.config.indicatorClass +
-                  "{opacity:1; transition: opacity 200ms ease-in;}                      ." +
-                  Q.config.requestClass +
-                  "." +
-                  Q.config.indicatorClass +
-                  "{opacity:1; transition: opacity 200ms ease-in;}                    </style>",
-              );
-            }
-          }
-          function zr() {
-            var e = re().querySelector('meta[name="htmx-config"]');
-            if (e) {
-              return E(e.content);
-            } else {
-              return null;
-            }
-          }
-          function $r() {
-            var e = zr();
-            if (e) {
-              Q.config = le(Q.config, e);
-            }
-          }
-          jr(function () {
-            $r();
-            _r();
-            var e = re().body;
-            zt(e);
-            var t = re().querySelectorAll(
-              "[hx-trigger='restored'],[data-hx-trigger='restored']",
-            );
-            e.addEventListener("htmx:abort", function (e) {
-              var t = e.target;
-              var r = ae(t);
-              if (r && r.xhr) {
-                r.xhr.abort();
-              }
-            });
-            const r = window.onpopstate ? window.onpopstate.bind(window) : null;
-            window.onpopstate = function (e) {
-              if (e.state && e.state.htmx) {
-                ar();
-                oe(t, function (e) {
-                  ce(e, "htmx:restored", { document: re(), triggerEvent: ce });
-                });
-              } else {
-                if (r) {
-                  r(e);
-                }
-              }
-            };
-            setTimeout(function () {
-              ce(e, "htmx:load", {});
-              e = null;
-            }, 0);
-          });
-          return Q;
-        })();
-      });
-    </script>
-    <script>
-      /*
-        WebSockets Extension
-        ============================
-        This extension adds support for WebSockets to htmx.  See /www/extensions/ws.md for usage instructions.
-      */
-
-      (function () {
-        /** @type {import("../htmx").HtmxInternalApi} */
-        var api;
-
-        htmx.defineExtension("ws", {
-          /**
-           * init is called once, when this extension is first registered.
-           * @param {import("../htmx").HtmxInternalApi} apiRef
-           */
-          init: function (apiRef) {
-            // Store reference to internal API
-            api = apiRef;
-
-            // Default function for creating new EventSource objects
-            if (!htmx.createWebSocket) {
-              htmx.createWebSocket = createWebSocket;
-            }
-
-            // Default setting for reconnect delay
-            if (!htmx.config.wsReconnectDelay) {
-              htmx.config.wsReconnectDelay = "full-jitter";
-            }
-          },
-
-          /**
-           * onEvent handles all events passed to this extension.
-           *
-           * @param {string} name
-           * @param {Event} evt
-           */
-          onEvent: function (name, evt) {
-            var parent = evt.target || evt.detail.elt;
-
-            switch (name) {
-              // Try to close the socket when elements are removed
-              case "htmx:beforeCleanupElement":
-                var internalData = api.getInternalData(parent);
-
-                if (internalData.webSocket) {
-                  internalData.webSocket.close();
-                }
-                return;
-
-              // Try to create websockets when elements are processed
-              case "htmx:beforeProcessNode":
-                forEach(
-                  queryAttributeOnThisOrChildren(parent, "ws-connect"),
-                  function (child) {
-                    ensureWebSocket(child);
-                  },
-                );
-                forEach(
-                  queryAttributeOnThisOrChildren(parent, "ws-send"),
-                  function (child) {
-                    ensureWebSocketSend(child);
-                  },
-                );
-            }
-          },
-        });
-
-        function splitOnWhitespace(trigger) {
-          return trigger.trim().split(/\s+/);
-        }
-
-        function getLegacyWebsocketURL(elt) {
-          var legacySSEValue = api.getAttributeValue(elt, "hx-ws");
-          if (legacySSEValue) {
-            var values = splitOnWhitespace(legacySSEValue);
-            for (var i = 0; i < values.length; i++) {
-              var value = values[i].split(/:(.+)/);
-              if (value[0] === "connect") {
-                return value[1];
-              }
-            }
-          }
-        }
-
-        /**
-         * ensureWebSocket creates a new WebSocket on the designated element, using
-         * the element's "ws-connect" attribute.
-         * @param {HTMLElement} socketElt
-         * @returns
-         */
-        function ensureWebSocket(socketElt) {
-          // If the element containing the WebSocket connection no longer exists, then
-          // do not connect/reconnect the WebSocket.
-          if (!api.bodyContains(socketElt)) {
-            return;
-          }
-
-          // Get the source straight from the element's value
-          var wssSource = api.getAttributeValue(socketElt, "ws-connect");
-
-          if (wssSource == null || wssSource === "") {
-            var legacySource = getLegacyWebsocketURL(socketElt);
-            if (legacySource == null) {
-              return;
-            } else {
-              wssSource = legacySource;
-            }
-          }
-
-          // Guarantee that the wssSource value is a fully qualified URL
-          if (wssSource.indexOf("/") === 0) {
-            var base_part =
-              location.hostname + (location.port ? ":" + location.port : "");
-            if (location.protocol === "https:") {
-              wssSource = "wss://" + base_part + wssSource;
-            } else if (location.protocol === "http:") {
-              wssSource = "ws://" + base_part + wssSource;
-            }
-          }
-
-          var socketWrapper = createWebsocketWrapper(socketElt, function () {
-            return htmx.createWebSocket(wssSource);
-          });
-
-          socketWrapper.addEventListener("message", function (event) {
-            if (maybeCloseWebSocketSource(socketElt)) {
-              return;
-            }
-
-            var response = event.data;
-            if (
-              !api.triggerEvent(socketElt, "htmx:wsBeforeMessage", {
-                message: response,
-                socketWrapper: socketWrapper.publicInterface,
-              })
-            ) {
-              return;
-            }
-
-            api.withExtensions(socketElt, function (extension) {
-              response = extension.transformResponse(response, null, socketElt);
-            });
-
-            var settleInfo = api.makeSettleInfo(socketElt);
-            var fragment = api.makeFragment(response);
-
-            if (fragment.children.length) {
-              var children = Array.from(fragment.children);
-              for (var i = 0; i < children.length; i++) {
-                api.oobSwap(
-                  api.getAttributeValue(children[i], "hx-swap-oob") || "true",
-                  children[i],
-                  settleInfo,
-                );
-              }
-            }
-
-            api.settleImmediately(settleInfo.tasks);
-            api.triggerEvent(socketElt, "htmx:wsAfterMessage", {
-              message: response,
-              socketWrapper: socketWrapper.publicInterface,
-            });
-          });
-
-          // Put the WebSocket into the HTML Element's custom data.
-          api.getInternalData(socketElt).webSocket = socketWrapper;
-        }
-
-        /**
-         * @typedef {Object} WebSocketWrapper
-         * @property {WebSocket} socket
-         * @property {Array<{message: string, sendElt: Element}>} messageQueue
-         * @property {number} retryCount
-         * @property {(message: string, sendElt: Element) => void} sendImmediately sendImmediately sends message regardless of websocket connection state
-         * @property {(message: string, sendElt: Element) => void} send
-         * @property {(event: string, handler: Function) => void} addEventListener
-         * @property {() => void} handleQueuedMessages
-         * @property {() => void} init
-         * @property {() => void} close
-         */
-        /**
-         *
-         * @param socketElt
-         * @param socketFunc
-         * @returns {WebSocketWrapper}
-         */
-        function createWebsocketWrapper(socketElt, socketFunc) {
-          var wrapper = {
-            socket: null,
-            messageQueue: [],
-            retryCount: 0,
-
-            /** @type {Object<string, Function[]>} */
-            events: {},
-
-            addEventListener: function (event, handler) {
-              if (this.socket) {
-                this.socket.addEventListener(event, handler);
-              }
-
-              if (!this.events[event]) {
-                this.events[event] = [];
-              }
-
-              this.events[event].push(handler);
-            },
-
-            sendImmediately: function (message, sendElt) {
-              if (!this.socket) {
-                api.triggerErrorEvent();
-              }
-              if (
-                !sendElt ||
-                api.triggerEvent(sendElt, "htmx:wsBeforeSend", {
-                  message: message,
-                  socketWrapper: this.publicInterface,
-                })
-              ) {
-                this.socket.send(message);
-                sendElt &&
-                  api.triggerEvent(sendElt, "htmx:wsAfterSend", {
-                    message: message,
-                    socketWrapper: this.publicInterface,
-                  });
-              }
-            },
-
-            send: function (message, sendElt) {
-              if (this.socket.readyState !== this.socket.OPEN) {
-                this.messageQueue.push({ message: message, sendElt: sendElt });
-              } else {
-                this.sendImmediately(message, sendElt);
-              }
-            },
-
-            handleQueuedMessages: function () {
-              while (this.messageQueue.length > 0) {
-                var queuedItem = this.messageQueue[0];
-                if (this.socket.readyState === this.socket.OPEN) {
-                  this.sendImmediately(queuedItem.message, queuedItem.sendElt);
-                  this.messageQueue.shift();
-                } else {
-                  break;
-                }
-              }
-            },
-
-            init: function () {
-              if (this.socket && this.socket.readyState === this.socket.OPEN) {
-                // Close discarded socket
-                this.socket.close();
-              }
-
-              // Create a new WebSocket and event handlers
-              /** @type {WebSocket} */
-              var socket = socketFunc();
-
-              // The event.type detail is added for interface conformance with the
-              // other two lifecycle events (open and close) so a single handler method
-              // can handle them polymorphically, if required.
-              api.triggerEvent(socketElt, "htmx:wsConnecting", {
-                event: { type: "connecting" },
-              });
-
-              this.socket = socket;
-
-              socket.onopen = function (e) {
-                wrapper.retryCount = 0;
-                api.triggerEvent(socketElt, "htmx:wsOpen", {
-                  event: e,
-                  socketWrapper: wrapper.publicInterface,
-                });
-                wrapper.handleQueuedMessages();
-              };
-
-              socket.onclose = function (e) {
-                // If socket should not be connected, stop further attempts to establish connection
-                // If Abnormal Closure/Service Restart/Try Again Later, then set a timer to reconnect after a pause.
-                if (
-                  !maybeCloseWebSocketSource(socketElt) &&
-                  [1006, 1012, 1013].indexOf(e.code) >= 0
-                ) {
-                  var delay = getWebSocketReconnectDelay(wrapper.retryCount);
-                  setTimeout(function () {
-                    wrapper.retryCount += 1;
-                    wrapper.init();
-                  }, delay);
-                }
-
-                // Notify client code that connection has been closed. Client code can inspect `event` field
-                // to determine whether closure has been valid or abnormal
-                api.triggerEvent(socketElt, "htmx:wsClose", {
-                  event: e,
-                  socketWrapper: wrapper.publicInterface,
-                });
-              };
-
-              socket.onerror = function (e) {
-                api.triggerErrorEvent(socketElt, "htmx:wsError", {
-                  error: e,
-                  socketWrapper: wrapper,
-                });
-                maybeCloseWebSocketSource(socketElt);
-              };
-
-              var events = this.events;
-              Object.keys(events).forEach(function (k) {
-                events[k].forEach(function (e) {
-                  socket.addEventListener(k, e);
-                });
-              });
-            },
-
-            close: function () {
-              this.socket.close();
-            },
-          };
-
-          wrapper.init();
-
-          wrapper.publicInterface = {
-            send: wrapper.send.bind(wrapper),
-            sendImmediately: wrapper.sendImmediately.bind(wrapper),
-            queue: wrapper.messageQueue,
-          };
-
-          return wrapper;
-        }
-
-        /**
-         * ensureWebSocketSend attaches trigger handles to elements with
-         * "ws-send" attribute
-         * @param {HTMLElement} elt
-         */
-        function ensureWebSocketSend(elt) {
-          var legacyAttribute = api.getAttributeValue(elt, "hx-ws");
-          if (legacyAttribute && legacyAttribute !== "send") {
-            return;
-          }
-
-          var webSocketParent = api.getClosestMatch(elt, hasWebSocket);
-          processWebSocketSend(webSocketParent, elt);
-        }
-
-        /**
-         * hasWebSocket function checks if a node has webSocket instance attached
-         * @param {HTMLElement} node
-         * @returns {boolean}
-         */
-        function hasWebSocket(node) {
-          return api.getInternalData(node).webSocket != null;
-        }
-
-        /**
-         * processWebSocketSend adds event listeners to the <form> element so that
-         * messages can be sent to the WebSocket server when the form is submitted.
-         * @param {HTMLElement} socketElt
-         * @param {HTMLElement} sendElt
-         */
-        function processWebSocketSend(socketElt, sendElt) {
-          var nodeData = api.getInternalData(sendElt);
-          var triggerSpecs = api.getTriggerSpecs(sendElt);
-          triggerSpecs.forEach(function (ts) {
-            api.addTriggerHandler(sendElt, ts, nodeData, function (elt, evt) {
-              if (maybeCloseWebSocketSource(socketElt)) {
-                return;
-              }
-
-              /** @type {WebSocketWrapper} */
-              var socketWrapper = api.getInternalData(socketElt).webSocket;
-              var headers = api.getHeaders(sendElt, api.getTarget(sendElt));
-              var results = api.getInputValues(sendElt, "post");
-              var errors = results.errors;
-              var rawParameters = results.values;
-              var expressionVars = api.getExpressionVars(sendElt);
-              var allParameters = api.mergeObjects(
-                rawParameters,
-                expressionVars,
-              );
-              var filteredParameters = api.filterValues(allParameters, sendElt);
-
-              var sendConfig = {
-                parameters: filteredParameters,
-                unfilteredParameters: allParameters,
-                headers: headers,
-                errors: errors,
-
-                triggeringEvent: evt,
-                messageBody: undefined,
-                socketWrapper: socketWrapper.publicInterface,
-              };
-
-              if (!api.triggerEvent(elt, "htmx:wsConfigSend", sendConfig)) {
-                return;
-              }
-
-              if (errors && errors.length > 0) {
-                api.triggerEvent(elt, "htmx:validation:halted", errors);
-                return;
-              }
-
-              var body = sendConfig.messageBody;
-              if (body === undefined) {
-                var toSend = Object.assign({}, sendConfig.parameters);
-                if (sendConfig.headers) toSend["HEADERS"] = headers;
-                body = JSON.stringify(toSend);
-              }
-
-              socketWrapper.send(body, elt);
-
-              if (evt && api.shouldCancel(evt, elt)) {
-                evt.preventDefault();
-              }
-            });
-          });
-        }
-
-        /**
-         * getWebSocketReconnectDelay is the default easing function for WebSocket reconnects.
-         * @param {number} retryCount // The number of retries that have already taken place
-         * @returns {number}
-         */
-        function getWebSocketReconnectDelay(retryCount) {
-          /** @type {"full-jitter" | ((retryCount:number) => number)} */
-          var delay = htmx.config.wsReconnectDelay;
-          if (typeof delay === "function") {
-            return delay(retryCount);
-          }
-          if (delay === "full-jitter") {
-            var exp = Math.min(retryCount, 6);
-            var maxDelay = 1000 * Math.pow(2, exp);
-            return maxDelay * Math.random();
-          }
-
-          logError(
-            'htmx.config.wsReconnectDelay must either be a function or the string "full-jitter"',
-          );
-        }
-
-        /**
-         * maybeCloseWebSocketSource checks to the if the element that created the WebSocket
-         * still exists in the DOM.  If NOT, then the WebSocket is closed and this function
-         * returns TRUE.  If the element DOES EXIST, then no action is taken, and this function
-         * returns FALSE.
-         *
-         * @param {*} elt
-         * @returns
-         */
-        function maybeCloseWebSocketSource(elt) {
-          if (!api.bodyContains(elt)) {
-            api.getInternalData(elt).webSocket.close();
-            return true;
-          }
-          return false;
-        }
-
-        /**
-         * createWebSocket is the default method for creating new WebSocket objects.
-         * it is hoisted into htmx.createWebSocket to be overridden by the user, if needed.
-         *
-         * @param {string} url
-         * @returns WebSocket
-         */
-        function createWebSocket(url) {
-          var sock = new WebSocket(url, []);
-          sock.binaryType = htmx.config.wsBinaryType;
-          return sock;
-        }
-
-        /**
-         * queryAttributeOnThisOrChildren returns all nodes that contain the requested attributeName, INCLUDING THE PROVIDED ROOT ELEMENT.
-         *
-         * @param {HTMLElement} elt
-         * @param {string} attributeName
-         */
-        function queryAttributeOnThisOrChildren(elt, attributeName) {
-          var result = [];
-
-          // If the parent element also contains the requested attribute, then add it to the results too.
-          if (
-            api.hasAttribute(elt, attributeName) ||
-            api.hasAttribute(elt, "hx-ws")
-          ) {
-            result.push(elt);
-          }
-
-          // Search all child nodes that match the requested attribute
-          elt
-            .querySelectorAll(
-              "[" +
-                attributeName +
-                "], [data-" +
-                attributeName +
-                "], [data-hx-ws], [hx-ws]",
-            )
-            .forEach(function (node) {
-              result.push(node);
-            });
-
-          return result;
-        }
-
-        /**
-         * @template T
-         * @param {T[]} arr
-         * @param {(T) => void} func
-         */
-        function forEach(arr, func) {
-          if (arr) {
-            for (var i = 0; i < arr.length; i++) {
-              func(arr[i]);
-            }
-          }
-        }
-      })();
-    </script>
-    <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      body {
-        background: #0d0d0d;
-        color: #eee;
-        font-family: monospace;
-        padding: 16px;
-      }
-      h1 {
-        color: #fff;
-        margin-bottom: 12px;
-        font-size: 18px;
-      }
-      section {
-        margin-bottom: 16px;
-      }
-      .label {
-        color: #666;
-        font-size: 12px;
-        margin-bottom: 6px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-      }
-      #controls {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      .spawn-group {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-        border-left: 1px solid #333;
-        padding-left: 10px;
-        margin-left: 4px;
-      }
-      input[type="number"],
-      input[type="text"],
-      input[type="url"] {
-        background: #111;
-        color: #eee;
-        border: 1px solid #444;
-        padding: 5px 8px;
-        font-family: monospace;
-        font-size: 13px;
-        border-radius: 3px;
-      }
-      input[type="number"] {
-        width: 64px;
-      }
-      input[type="text"],
-      input[type="url"] {
-        width: 280px;
-      }
-      button {
-        background: #222;
-        color: #eee;
-        border: 1px solid #444;
-        padding: 6px 14px;
-        cursor: pointer;
-        font-family: monospace;
-        border-radius: 3px;
-        font-size: 13px;
-      }
-      button:hover {
-        background: #333;
-      }
-      button.primary {
-        border-color: #555;
-        background: #2a2a2a;
-      }
-      .row-btn {
-        padding: 2px 7px;
-        font-size: 11px;
-        margin-right: 2px;
-      }
-      .destroy-btn {
-        border-color: #5a1a1a;
-        color: #ff6666;
-      }
-      .destroy-btn:hover {
-        background: #2a0a0a;
-        border-color: #ff4444;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-      }
-      th {
-        text-align: left;
-        padding: 6px 10px;
-        border-bottom: 1px solid #333;
-        color: #666;
-        font-size: 11px;
-        text-transform: uppercase;
-      }
-      td {
-        padding: 5px 10px;
-        border-bottom: 1px solid #1a1a1a;
-        vertical-align: middle;
-      }
-      .state {
-        font-weight: bold;
-        border-radius: 3px;
-        padding: 2px 7px;
-        font-size: 11px;
-      }
-      .url-cell {
-        color: #666;
-        max-width: 200px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .target-url-cell {
-        max-width: 200px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: #555;
-        font-size: 11px;
-      }
-      #summary {
-        font-size: 13px;
-        color: #666;
-      }
-      details {
-        border: 1px solid #2a2a2a;
-        border-radius: 4px;
-        padding: 10px;
-      }
-      summary {
-        cursor: pointer;
-        color: #888;
-        font-size: 13px;
-        user-select: none;
-      }
-      summary:hover {
-        color: #ccc;
-      }
-      textarea {
-        width: 100%;
-        min-height: 240px;
-        margin-top: 10px;
-        background: #111;
-        color: #eee;
-        border: 1px solid #333;
-        font-family: monospace;
-        font-size: 12px;
-        padding: 8px;
-        border-radius: 3px;
-        resize: vertical;
-      }
-      textarea.error {
-        border-color: #ff4444;
-      }
-      .cfg-actions {
-        margin-top: 8px;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
-      .cfg-msg {
-        font-size: 12px;
-      }
-      .cfg-msg.ok {
-        color: #00cc66;
-      }
-      .cfg-msg.err {
-        color: #ff4444;
-      }
-    </style>
-  </head>
-  <body>
-    <div
-      id="ws-inbox"
-      hx-ext="ws"
-      ws-connect="ws://localhost:__WS_PORT__"
-      style="display: none"
-    ></div>
-
-    <h1>Ticket Bot &#8212; Live Dashboard</h1>
-
-    <section>
-      <div class="label">Controls</div>
-      <div id="controls">
-        <button hx-post="/cmd" hx-vals='{"command":"START"}' hx-swap="none">
-          &#9654; Start All
-        </button>
-        <button hx-post="/cmd" hx-vals='{"command":"STOP"}' hx-swap="none">
-          &#9632; Stop All
-        </button>
-        <button hx-post="/cmd" hx-vals='{"command":"REFRESH"}' hx-swap="none">
-          &#8634; Refresh All
-        </button>
-        <button
-          hx-post="/cmd"
-          hx-vals='{"command":"CLICK_PRIMARY"}'
-          hx-swap="none"
-        >
-          &#9889; Click All
-        </button>
-        <button hx-post="/cmd" hx-vals='{"command":"FOCUS"}' hx-swap="none">
-          &#8862; Focus All
-        </button>
-        <div class="spawn-group">
-          <form
-            hx-post="/spawn"
-            hx-swap="none"
-            style="display: flex; gap: 6px; align-items: center"
-          >
-            <input
-              type="number"
-              name="count"
-              value="1"
-              min="1"
-              placeholder="N"
-            />
-            <input
-              type="url"
-              name="targetUrl"
-              placeholder="URL (default: config)"
-            />
-            <button type="submit" class="primary">&#11042; Spawn N</button>
-          </form>
-        </div>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>TICKET BOT</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0d0d0d;
+      --surface:      #111111;
+      --surface-2:    #141414;
+      --border:       #1c1c1c;
+      --border-hi:    #2a2a2a;
+      --text:         #a8a8a8;
+      --text-dim:     #444;
+      --text-muted:   #666;
+      --text-hi:      #d8d8d8;
+      --green:        #00ff88;
+      --green-dim:    #00cc66;
+      --amber:        #f0a500;
+      --blue:         #4db8ff;
+      --red:          #ff4444;
+      --cyan:         #00d4ff;
+      --yellow:       #ffc947;
+      --font:         Consolas, 'Courier New', 'Liberation Mono', monospace;
+      --sz:           12px;
+      --header-h:     44px;
+      --ctrl-h:       44px;
+      --sum-h:        28px;
+      --log-h:        215px;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: var(--sz);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      line-height: 1.4;
+    }
+
+    /* ── Scanline overlay ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 2px,
+        rgba(0,0,0,0.035) 2px,
+        rgba(0,0,0,0.035) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Checkout alert ── */
+    #checkout-alert {
+      display: none;
+      flex-shrink: 0;
+      height: 34px;
+      line-height: 34px;
+      padding: 0 16px;
+      background: #001208;
+      border-bottom: 1px solid var(--green);
+      color: var(--green);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      font-weight: bold;
+      animation: alertFlash 0.9s ease-in-out infinite;
+    }
+    @keyframes alertFlash {
+      0%, 100% { background: #001208; }
+      50%       { background: #002514; }
+    }
+
+    /* ── Header ── */
+    .hdr {
+      height: var(--header-h);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-hi);
+    }
+    .hdr-left { display: flex; align-items: center; gap: 10px; }
+    .logo {
+      color: var(--green);
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 0.22em;
+      text-shadow: 0 0 10px rgba(0,255,136,0.35);
+    }
+    .hdr-sep  { color: var(--border-hi); }
+    .hdr-sub  { color: var(--text-muted); font-size: 10px; letter-spacing: 0.18em; }
+
+    /* WS indicator */
+    .ws-ind {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+    }
+    .ws-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+    .ws-ind.connected    { color: var(--green); }
+    .ws-ind.connected    .ws-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .ws-ind.reconnecting { color: var(--amber); }
+    .ws-ind.reconnecting .ws-dot { background: var(--amber); animation: blink 0.9s step-end infinite; }
+    .ws-ind.disconnected { color: var(--red); }
+    .ws-ind.disconnected .ws-dot { background: var(--red); }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Controls bar ── */
+    .ctrl-bar {
+      height: var(--ctrl-h);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 6px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .ctrl-sep { color: var(--border-hi); padding: 0 3px; flex-shrink: 0; }
+
+    /* ── Summary bar ── */
+    .sum-bar {
+      height: var(--sum-h);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .sum-label { font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); flex-shrink: 0; }
+    #summary   { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .sum-sep   { color: var(--border-hi); }
+    .no-workers { color: var(--text-dim); font-size: 11px; }
+
+    /* ── Buttons ── */
+    button {
+      background: var(--surface-2);
+      border: 1px solid var(--border-hi);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 5px 10px;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+      white-space: nowrap;
+      flex-shrink: 0;
+      outline: none;
+    }
+    button:hover  { background: #1c1c1c; border-color: #3a3a3a; color: var(--text-hi); }
+    button:active { background: #222; }
+    .btn-primary  { border-color: #1a5c3a; color: var(--green-dim); }
+    .btn-primary:hover { background: rgba(0,204,102,0.08); border-color: var(--green-dim); color: var(--green); }
+    .btn-danger   { border-color: rgba(255,68,68,0.25); color: #884444; }
+    .btn-danger:hover { background: rgba(255,68,68,0.08); border-color: rgba(255,68,68,0.6); color: var(--red); }
+    .btn-sm       { font-size: 10px; padding: 2px 8px; }
+
+    /* ── Inputs ── */
+    input {
+      background: var(--bg);
+      border: 1px solid var(--border-hi);
+      color: var(--text-hi);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 5px 8px;
+      outline: none;
+      flex-shrink: 0;
+    }
+    input:focus { border-color: #3a3a3a; }
+    input::placeholder { color: var(--text-dim); }
+    #spawn-count { width: 52px; }
+    #spawn-url   { width: 200px; }
+
+    /* ── Worker table ── */
+    .tbl-wrap {
+      flex: 1;
+      min-height: 60px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #252525 var(--bg);
+    }
+    .tbl-wrap::-webkit-scrollbar       { width: 5px; }
+    .tbl-wrap::-webkit-scrollbar-track { background: var(--bg); }
+    .tbl-wrap::-webkit-scrollbar-thumb { background: #252525; }
+
+    .wtable {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .wtable thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #111111;
+    }
+    .wtable th {
+      text-align: left;
+      padding: 7px 10px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border-hi);
+      font-weight: normal;
+    }
+    .wtable td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .wtable tbody tr:hover td { background: rgba(255,255,255,0.018); }
+
+    /* col widths */
+    .wtable th:nth-child(1), .wtable td:nth-child(1) { width: 38px; color: var(--text-dim); }
+    .wtable th:nth-child(2), .wtable td:nth-child(2) { width: 155px; }
+    .wtable th:nth-child(3), .wtable td:nth-child(3) { width: 195px; font-size: 11px; color: var(--text-muted); }
+    .wtable th:nth-child(4), .wtable td:nth-child(4) { width: 195px; font-size: 11px; color: var(--text-muted); }
+    .wtable th:nth-child(5), .wtable td:nth-child(5) { width: 170px; font-size: 11px; color: var(--text-muted); }
+    .wtable th:nth-child(6), .wtable td:nth-child(6) { width: 90px;  font-size: 11px; color: var(--text-muted); }
+    .wtable th:nth-child(7), .wtable td:nth-child(7) { width: auto; }
+
+    /* row states */
+    .row-error    td { background: rgba(255,68,68,0.04) !important; }
+    .row-error:hover td { background: rgba(255,68,68,0.07) !important; }
+    .row-checkout td { animation: checkoutRow 1.1s ease-in-out infinite; }
+    @keyframes checkoutRow {
+      0%, 100% { background: rgba(0,255,136,0.04); }
+      50%       { background: rgba(0,255,136,0.11); }
+    }
+
+    /* state badge */
+    .sbadge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
+    .sbadge.pulsing { animation: statePulse 1.3s ease-in-out infinite; }
+    @keyframes statePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+    /* spinner */
+    .spin {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border: 1.5px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* action buttons */
+    .acts { display: flex; gap: 3px; }
+    .acts button { font-size: 10px; padding: 2px 7px; }
+
+    /* empty */
+    .empty-td {
+      text-align: center;
+      padding: 44px 0 !important;
+      color: var(--text-dim);
+      font-size: 11px;
+      letter-spacing: 0.07em;
+    }
+
+    /* ── Log section ── */
+    .log-section {
+      flex-shrink: 0;
+      height: var(--log-h);
+      display: flex;
+      flex-direction: column;
+      background: #0a0a0a;
+      border-top: 1px solid var(--border-hi);
+    }
+    .log-hdr {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .log-title { font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); }
+    #log-count { flex: 1; font-size: 10px; color: var(--text-dim); }
+    .log-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 5px 12px 6px;
+      scrollbar-width: thin;
+      scrollbar-color: #1c1c1c #0a0a0a;
+    }
+    .log-panel::-webkit-scrollbar       { width: 5px; }
+    .log-panel::-webkit-scrollbar-track { background: #0a0a0a; }
+    .log-panel::-webkit-scrollbar-thumb { background: #1c1c1c; }
+    .log-line { font-size: 11px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+    .lt  { color: #2e2e2e; }
+    .lsw { color: var(--cyan); }
+    .lss { color: var(--yellow); }
+    .lm  { color: #7a7a7a; }
+
+    /* ── Config ── */
+    .cfg-section {
+      flex-shrink: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+    }
+    .cfg-section summary {
+      padding: 5px 12px;
+      cursor: pointer;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--text-dim);
+      user-select: none;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      outline: none;
+    }
+    .cfg-section summary::-webkit-details-marker { display: none; }
+    .cfg-section summary::before { content: '+'; transition: 0.15s; }
+    .cfg-section[open] summary::before { content: '-'; }
+    .cfg-body { padding: 0 12px 10px; display: flex; flex-direction: column; gap: 7px; }
+    .cfg-acts { display: flex; gap: 6px; }
+    .cfg-ta {
+      background: var(--bg);
+      border: 1px solid var(--border-hi);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 8px;
+      resize: vertical;
+      outline: none;
+      width: 100%;
+      max-height: 220px;
+    }
+    .cfg-ta:focus { border-color: #3a3a3a; }
+  </style>
+</head>
+<body>
+
+  <div id="checkout-alert"></div>
+
+  <header class="hdr">
+    <div class="hdr-left">
+      <span class="logo">TICKET BOT</span>
+      <span class="hdr-sep">//</span>
+      <span class="hdr-sub">CONTROL PANEL</span>
+    </div>
+    <span id="ws-ind" class="ws-ind disconnected">
+      <span class="ws-dot"></span>
+      <span id="ws-txt">DISCONNECTED</span>
+    </span>
+  </header>
+
+  <div class="ctrl-bar">
+    <button class="btn-primary" onclick="spawnAll()">SPAWN ALL</button>
+    <span class="ctrl-sep">|</span>
+    <input id="spawn-count" type="number" min="1" value="1" title="worker count">
+    <input id="spawn-url"   type="text" placeholder="target url (optional)">
+    <button onclick="spawnN()">SPAWN N</button>
+    <span class="ctrl-sep">|</span>
+    <button onclick="cmdAll('START')">START ALL</button>
+    <button onclick="cmdAll('STOP')">STOP ALL</button>
+    <button onclick="cmdAll('REFRESH')">REFRESH ALL</button>
+  </div>
+
+  <div class="sum-bar">
+    <span class="sum-label">STATUS</span>
+    <div id="summary"><span class="no-workers">no workers</span></div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table class="wtable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>STATE</th>
+          <th>TARGET</th>
+          <th>CURRENT URL</th>
+          <th>LAST ACTION</th>
+          <th>PROXY</th>
+          <th>ACTIONS</th>
+        </tr>
+      </thead>
+      <tbody id="wtbody">
+        <tr id="empty-row"><td class="empty-td" colspan="7">no workers spawned — click SPAWN ALL to begin</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="log-section">
+    <div class="log-hdr">
+      <span class="log-title">LOGS</span>
+      <span id="log-count"></span>
+      <button class="btn-sm" onclick="clearLogs()">CLEAR</button>
+    </div>
+    <div id="log-panel" class="log-panel"></div>
+  </div>
+
+  <details class="cfg-section">
+    <summary>CONFIG</summary>
+    <div class="cfg-body">
+      <div class="cfg-acts">
+        <button onclick="loadConfig()">LOAD</button>
+        <button onclick="saveConfig()">SAVE</button>
       </div>
-    </section>
+      <textarea id="cfg-ta" class="cfg-ta" rows="10" spellcheck="false"></textarea>
+    </div>
+  </details>
 
-    <section>
-      <div id="summary">{{SUMMARY_CONTENT}}</div>
-    </section>
+  <script>
+    /* ── State colors ── */
+    const SC = {
+      UNSPAWNED:    '#444',
+      IDLE:         '#888',
+      NAVIGATING:   '#aaa',
+      RELOADING:    '#4db8ff',
+      PRE_QUEUE:    '#f0a500',
+      WAITING_ROOM: '#f0a500',
+      IN_QUEUE:     '#f0a500',
+      ACTIVE_SALE:  '#00cc66',
+      CHECKOUT:     '#00ff88',
+      DONE:         '#00ff88',
+      SOLD_OUT:     '#ff4444',
+      ERROR:        '#ff4444',
+    };
+    const SPINNER_STATES  = new Set(['NAVIGATING', 'RELOADING']);
+    const PULSE_STATES    = new Set(['ACTIVE_SALE']);
+    const CHECKOUT_STATES = new Set(['CHECKOUT', 'DONE']);
+    const ERROR_STATES    = new Set(['ERROR', 'SOLD_OUT']);
 
-    <section>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>State</th>
-            <th>Target URL</th>
-            <th>Current URL</th>
-            <th>Last Action</th>
-            <th>Proxy</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="worker-rows">
-          {{WORKER_ROWS}}
-        </tbody>
-      </table>
-    </section>
+    const workers = new Map();
+    let logTotal  = 0;
 
-    <section>
-      <details id="cfg-details">
-        <summary>&#9881; Config Editor</summary>
-        <textarea id="cfgArea" spellcheck="false"></textarea>
-        <div class="cfg-actions">
-          <button onclick="saveConfig()">Save Config</button>
-          <button onclick="loadConfig()">&#8634; Reload</button>
-          <span id="cfgMsg" class="cfg-msg"></span>
-        </div>
-      </details>
-    </section>
+    /* ── WebSocket ── */
+    let ws = null;
+    let delay = 1000;
 
-    <script>
-      document
-        .getElementById("cfg-details")
-        .addEventListener("toggle", function () {
-          if (this.open && !document.getElementById("cfgArea").value)
-            loadConfig();
+    function connect() {
+      setWs('reconnecting');
+      try { ws = new WebSocket('ws://localhost:__WS_PORT__'); } catch { sched(); return; }
+      ws.onopen    = () => { setWs('connected'); delay = 1000; };
+      ws.onmessage = (e) => { try { handle(JSON.parse(e.data)); } catch {} };
+      ws.onclose   = ws.onerror = () => { setWs('disconnected'); sched(); };
+    }
+    function sched() {
+      setWs('reconnecting');
+      setTimeout(connect, delay);
+      delay = Math.min(delay * 2, 10000);
+    }
+    function setWs(state) {
+      const el  = document.getElementById('ws-ind');
+      const txt = document.getElementById('ws-txt');
+      el.className = 'ws-ind ' + state;
+      txt.textContent = state.toUpperCase();
+    }
+    function send(payload) {
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify(payload));
+    }
+
+    /* ── Message handler ── */
+    function handle(msg) {
+      if (msg.type === 'snapshot') {
+        workers.clear();
+        resetTable();
+        msg.workers.forEach(w => { workers.set(w.id, w); upsertRow(w); });
+        logTotal = 0;
+        document.getElementById('log-panel').innerHTML = '';
+        msg.logs.forEach(addLog);
+      } else if (msg.type === 'worker') {
+        workers.set(msg.status.id, msg.status);
+        upsertRow(msg.status);
+      } else if (msg.type === 'removed') {
+        workers.delete(msg.id);
+        removeRow(msg.id);
+      } else if (msg.type === 'log') {
+        addLog(msg.entry);
+      }
+      renderSummary();
+      renderAlerts();
+    }
+
+    /* ── Utilities ── */
+    function esc(s) {
+      return String(s || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function trunc(s, n) {
+      s = s || '';
+      return s.length > n ? s.slice(0, n - 1) + '…' : s;
+    }
+    function hhmm(ts) {
+      const d = new Date(ts);
+      return [d.getHours(), d.getMinutes(), d.getSeconds()]
+        .map(n => String(n).padStart(2,'0')).join(':');
+    }
+
+    /* ── Table ── */
+    function stateBadge(state) {
+      const color = SC[state] || '#888';
+      const spin  = SPINNER_STATES.has(state)  ? '<span class="spin"></span>' : '';
+      const cls   = PULSE_STATES.has(state)     ? 'sbadge pulsing' : 'sbadge';
+      return `<span class="${cls}" style="color:${color}">${spin}${state}</span>`;
+    }
+
+    function rowHtml(w) {
+      const isErr      = ERROR_STATES.has(w.state);
+      const isCheckout = CHECKOUT_STATES.has(w.state);
+      const cls        = isCheckout ? 'row-checkout' : isErr ? 'row-error' : '';
+      const url        = trunc(w.url, 36) || '—';
+      const target     = trunc(w.targetUrl, 36) || '—';
+      const action     = trunc(w.lastAction, 32) || '—';
+      const proxy      = trunc(w.proxy || '—', 20);
+      return `<tr id="wr-${w.id}" class="${cls}">
+        <td>${w.id}</td>
+        <td>${stateBadge(w.state)}</td>
+        <td title="${esc(w.targetUrl)}">${esc(target)}</td>
+        <td title="${esc(w.url)}">${esc(url)}</td>
+        <td title="${esc(w.lastAction)}">${esc(action)}</td>
+        <td>${esc(proxy)}</td>
+        <td class="acts">
+          <button onclick="cmd('START',${w.id})">START</button>
+          <button onclick="cmd('STOP',${w.id})">STOP</button>
+          <button onclick="cmd('REFRESH',${w.id})">REFRESH</button>
+          <button onclick="cmd('CLICK_PRIMARY',${w.id})">CLICK</button>
+          <button onclick="cmd('FOCUS',${w.id})">FOCUS</button>
+          <button class="btn-danger" onclick="destroyW(${w.id})">DESTROY</button>
+        </td>
+      </tr>`;
+    }
+
+    function resetTable() {
+      document.getElementById('wtbody').innerHTML =
+        '<tr id="empty-row"><td class="empty-td" colspan="7">no workers spawned — click SPAWN ALL to begin</td></tr>';
+    }
+
+    function upsertRow(w) {
+      const tbody = document.getElementById('wtbody');
+      const empty = document.getElementById('empty-row');
+      if (empty) empty.remove();
+      const existing = document.getElementById(`wr-${w.id}`);
+      if (existing) { existing.outerHTML = rowHtml(w); return; }
+      const rows = [...tbody.querySelectorAll('tr[id^="wr-"]')];
+      const after = rows.find(r => parseInt(r.id.slice(3)) > w.id);
+      if (after) after.insertAdjacentHTML('beforebegin', rowHtml(w));
+      else        tbody.insertAdjacentHTML('beforeend',  rowHtml(w));
+    }
+
+    function removeRow(id) {
+      const row = document.getElementById(`wr-${id}`);
+      if (row) row.remove();
+      if (workers.size === 0) resetTable();
+    }
+
+    /* ── Summary ── */
+    function renderSummary() {
+      const counts = {};
+      for (const w of workers.values()) counts[w.state] = (counts[w.state] || 0) + 1;
+      const el = document.getElementById('summary');
+      const entries = Object.entries(counts);
+      if (!entries.length) { el.innerHTML = '<span class="no-workers">no workers</span>'; return; }
+      el.innerHTML = entries.map(([s, n]) =>
+        `<span style="color:${SC[s]||'#888'}">${s}: ${n}</span>`
+      ).join('<span class="sum-sep"> | </span>');
+    }
+
+    /* ── Checkout alerts ── */
+    function renderAlerts() {
+      const outs = [...workers.values()].filter(w => CHECKOUT_STATES.has(w.state));
+      const bar  = document.getElementById('checkout-alert');
+      if (outs.length) {
+        bar.style.display = 'block';
+        bar.textContent = outs.map(w => `WORKER ${w.id} IS IN CHECKOUT — ACT NOW`).join('  |  ');
+      } else {
+        bar.style.display = 'none';
+      }
+    }
+
+    /* ── Log panel ── */
+    function addLog(entry) {
+      logTotal++;
+      const panel   = document.getElementById('log-panel');
+      const atBot   = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 60;
+      const isWorker = entry.scope.startsWith('worker');
+      const sClass   = isWorker ? 'lsw' : 'lss';
+      const line     = document.createElement('div');
+      line.className = 'log-line';
+      line.innerHTML =
+        `<span class="lt">${hhmm(entry.ts)}</span> ` +
+        `<span class="${sClass}">[${esc(entry.scope)}]</span> ` +
+        `<span class="lm">${esc(entry.message)}</span>`;
+      panel.appendChild(line);
+      if (atBot) panel.scrollTop = panel.scrollHeight;
+      document.getElementById('log-count').textContent = logTotal + ' entries';
+    }
+
+    function clearLogs() {
+      logTotal = 0;
+      document.getElementById('log-panel').innerHTML = '';
+      document.getElementById('log-count').textContent = '';
+    }
+
+    /* ── Commands ── */
+    async function cmd(command, workerId) {
+      await fetch('/cmd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command, workerId }),
+      }).catch(() => {});
+    }
+    async function cmdAll(command) {
+      await fetch('/cmd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command }),
+      }).catch(() => {});
+    }
+
+    async function spawnAll() {
+      await fetch('/spawn-all', { method: 'POST' }).catch(() => {});
+    }
+
+    async function spawnN() {
+      const count = parseInt(document.getElementById('spawn-count').value) || 1;
+      const url   = document.getElementById('spawn-url').value.trim();
+      const body  = { count };
+      if (url) body.targetUrl = url;
+      await fetch('/spawn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).catch(() => {});
+    }
+
+    async function destroyW(id) {
+      await fetch('/destroy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workerId: id }),
+      }).catch(() => {});
+    }
+
+    /* ── Config ── */
+    async function loadConfig() {
+      try {
+        const r = await fetch('/config');
+        document.getElementById('cfg-ta').value = JSON.stringify(await r.json(), null, 2);
+      } catch(e) { alert('Load failed: ' + e); }
+    }
+
+    async function saveConfig() {
+      try {
+        const patch = JSON.parse(document.getElementById('cfg-ta').value);
+        const r = await fetch('/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
         });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+      } catch(e) { alert('Save failed: ' + e); }
+    }
 
-      async function loadConfig() {
-        const r = await fetch("/config");
-        document.getElementById("cfgArea").value = await r.text();
-        document.getElementById("cfgArea").classList.remove("error");
-        setCfgMsg("");
-      }
-
-      async function saveConfig() {
-        const area = document.getElementById("cfgArea");
-        area.classList.remove("error");
-        let parsed;
-        try {
-          parsed = JSON.parse(area.value);
-        } catch (e) {
-          area.classList.add("error");
-          setCfgMsg("Invalid JSON: " + e.message, true);
-          return;
-        }
-        const r = await fetch("/config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(parsed),
-        });
-        const d = await r.json();
-        if (!r.ok) {
-          area.classList.add("error");
-          setCfgMsg(d.error || "Save failed", true);
-        } else setCfgMsg("Saved ✓", false);
-      }
-
-      function setCfgMsg(msg, isErr) {
-        const el = document.getElementById("cfgMsg");
-        el.textContent = msg;
-        el.className = "cfg-msg" + (msg ? (isErr ? " err" : " ok") : "");
-      }
-    </script>
-  </body>
+    /* ── Boot ── */
+    connect();
+  </script>
+</body>
 </html>

@@ -45,6 +45,12 @@ export interface SpawnOptions {
   targetUrl?: string;
 }
 
+export interface LogEntry {
+  ts: number;
+  scope: string;
+  message: string;
+}
+
 export interface AppContext {
   bus: TypedEventBus;
   config: Config;

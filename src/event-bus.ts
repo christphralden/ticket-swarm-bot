@@ -5,6 +5,7 @@ export type BusEvents = {
   "worker:state": WorkerStatus;
   "worker:log": { id: number; message: string };
   "worker:removed": { id: number };
+  "system:log": { scope: string; message: string };
   "cmd:all": ControllerMessage;
   [k: `cmd:${number}`]: ControllerMessage;
 };

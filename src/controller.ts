@@ -1,12 +1,22 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { getCtx } from "./context";
-import { buildWsUpdate } from "./renderer";
-import { WS_PORT, WORKER_COMMANDS, WORKER_STATES } from "../constants";
-import type { WorkerStatus, ControllerMessage, WorkerState } from "./types";
+import {
+  WS_PORT,
+  WORKER_COMMANDS,
+  WORKER_STATES,
+  LOG_BUFFER_SIZE,
+} from "../constants";
+import type {
+  WorkerStatus,
+  ControllerMessage,
+  WorkerState,
+  LogEntry,
+} from "./types";
 
 export class Controller {
   private wss: WebSocketServer;
   private statuses = new Map<number, WorkerStatus>();
+  private logs: LogEntry[] = [];
   private onCheckoutCb: ((workerId: number) => void) | null = null;
 
   constructor() {
@@ -18,7 +28,13 @@ export class Controller {
     bus.on("worker:state", (status) => this.onWorkerState(status));
     bus.on("worker:removed", ({ id }) => {
       this.statuses.delete(id);
-      this.pushUpdate();
+      this.broadcast({ type: "removed", id });
+    });
+    bus.on("worker:log", ({ id, message }) => {
+      this.log({ scope: `worker-${id}`, message });
+    });
+    bus.on("system:log", ({ scope, message }) => {
+      this.log({ scope, message });
     });
   }
 
@@ -34,25 +50,46 @@ export class Controller {
     this.wss.close();
   }
 
+  private log(entry: Omit<LogEntry, "ts">): void {
+    const full: LogEntry = { ts: Date.now(), ...entry };
+    this.logs.push(full);
+    if (this.logs.length > LOG_BUFFER_SIZE) this.logs.shift();
+    this.broadcast({ type: "log", entry: full });
+  }
+
   private onWorkerState(status: WorkerStatus): void {
-    this.statuses.set(status.id, { ...this.statuses.get(status.id), ...status });
-    this.pushUpdate();
+    this.statuses.set(status.id, {
+      ...this.statuses.get(status.id),
+      ...status,
+    });
+    this.broadcast({ type: "worker", status: this.statuses.get(status.id)! });
 
     if (status.state === WORKER_STATES.CHECKOUT) {
-      console.log(`\n[controller] Worker ${status.id} reached CHECKOUT!\n`);
       process.stdout.write("\x07");
+      this.log({
+        scope: "controller",
+        message: `CHEKCOUT BABY WORKER ${status.id} DA GOAT. GET UR WALLET OUT`,
+      });
       this.onCheckoutCb?.(status.id);
     }
 
     if (this.allInState(WORKER_STATES.SOLD_OUT)) {
-      console.log("[controller] all workers hit SOLD_OUT — stopping all");
+      this.log({
+        scope: "controller",
+        message: "SOLD OUT FUCK THIS",
+      });
       const { bus } = getCtx();
       bus.emit("cmd:all", { command: WORKER_COMMANDS.STOP });
     }
   }
 
   private onClientConnect(socket: WebSocket): void {
-    socket.send(buildWsUpdate(this.getStatuses()));
+    const snapshot = JSON.stringify({
+      type: "snapshot",
+      workers: this.getStatuses(),
+      logs: this.logs.slice(-200),
+    });
+    socket.send(snapshot);
 
     socket.on("message", (data) => {
       try {
@@ -68,10 +105,10 @@ export class Controller {
     });
   }
 
-  private pushUpdate(): void {
-    const html = buildWsUpdate(this.getStatuses());
+  private broadcast(payload: object): void {
+    const msg = JSON.stringify(payload);
     this.wss.clients.forEach((c) => {
-      if (c.readyState === WebSocket.OPEN) c.send(html);
+      if (c.readyState === WebSocket.OPEN) c.send(msg);
     });
   }
 
